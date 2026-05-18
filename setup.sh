@@ -41,11 +41,18 @@ fi
 mkdir -p images static/icons templates
 echo "✔  Directories ready"
 
-# ── Install dependencies ─────────────────────────────────
+# ── Install core dependencies (no compilation needed) ────
 echo ""
-echo "Installing Python dependencies…"
-pip3 install flask anthropic python-weather spotipy icrawler pygame edge-tts
-echo "✔  Dependencies installed"
+echo "Installing core dependencies…"
+pip3 install flask anthropic
+echo "✔  Core dependencies installed (flask, anthropic)"
+
+# ── Install optional tool dependencies ───────────────────
+echo ""
+echo "Installing optional tool dependencies…"
+pip3 install python-weather spotipy || echo "⚠  python-weather/spotipy failed — weather & Spotify tools won't work (chat still works fine)"
+pip3 install icrawler || echo "⚠  icrawler failed — image search won't work (chat still works fine)"
+echo "✔  Optional tools done"
 
 # ── Termux:Boot auto-start (runs only inside Termux) ────
 if command -v termux-setup-storage &>/dev/null 2>&1; then

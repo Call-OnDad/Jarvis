@@ -7,13 +7,15 @@ python-weather
 spotipy
 icrawler
 
-# ── Audio (web server uses browser TTS/STT; these are for CLI jarvis.py) ──
-pygame
-pyaudio
-SpeechRecognition
-
-# ── CLI voice mode TTS (lightweight, no GPU required) ───
-edge-tts
+# ── Audio (NOT needed for web/tablet interface — browser handles TTS/STT) ──
+# These only apply to the CLI jarvis.py voice mode and require native libs.
+# On Termux, install these manually ONLY if you need CLI mode:
+#   pkg install portaudio && pip install pyaudio
+#   pip install pygame edge-tts SpeechRecognition
+# pygame
+# pyaudio
+# SpeechRecognition
+# edge-tts
 
 # ── Optional: local LLM via Ollama ──────────────────────
 # ollama
