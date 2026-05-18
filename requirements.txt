@@ -1,5 +1,24 @@
+# ── Core ────────────────────────────────────────────────
+flask>=3.0.0
+anthropic>=0.34.0
+
+# ── Tools ───────────────────────────────────────────────
+python-weather
+spotipy
+icrawler
+
+# ── Audio (web server uses browser TTS/STT; these are for CLI jarvis.py) ──
+pygame
 pyaudio
 SpeechRecognition
---extra-index-url https://download.pytorch.org/whl/cu116
-torch
-git+https://github.com/openai/whisper.git
+
+# ── CLI voice mode TTS (lightweight, no GPU required) ───
+edge-tts
+
+# ── Optional: local LLM via Ollama ──────────────────────
+# ollama
+
+# ── Optional: Whisper hotword detection (heavy, needs GPU) ──
+# torch  →  pip install torch --index-url https://download.pytorch.org/whl/cu116
+# RealtimeSTT
+# git+https://github.com/openai/whisper.git
