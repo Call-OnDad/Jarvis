@@ -56,8 +56,8 @@ pkg update && pkg upgrade -y
 # Install Python and git
 pkg install python git -y
 
-# Clone the Jarvis repository
-git clone https://github.com/call-ondad/jarvis Jarvis
+# Clone the Jarvis repository (must specify the branch)
+git clone -b claude/tablet-os-claude-communication-fszBz https://github.com/Call-OnDad/Jarvis Jarvis
 cd Jarvis
 
 # Run setup
