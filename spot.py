@@ -1,10 +1,14 @@
+import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from dotenv import load_dotenv
 
-username = ''
-clientID = ''
-clientSecret = ''
-redirect_uri = 'http://localhost:8888/callback'
+load_dotenv()
+
+username = os.environ.get("SPOTIFY_USERNAME", "")
+clientID = os.environ.get("SPOTIFY_CLIENT_ID", "")
+clientSecret = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+redirect_uri = os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback")
 
 def spotify_authenicate(client_id, client_secret, redirect_uri, username):
     scope = "user-read-currently-playing user-modify-playback-state"

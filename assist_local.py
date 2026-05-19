@@ -3,6 +3,9 @@ import ollama
 import time
 from pygame import mixer
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Initialize the OpenAI client and mixer
 client = OpenAI()
