@@ -4,6 +4,48 @@ import assist
 from icrawler.builtin import GoogleImageCrawler
 import os
 import spot
+import requests
+
+OVERSEERR_URL = os.environ.get("OVERSEERR_URL", "http://localhost:5055")
+OVERSEERR_API_KEY = os.environ.get("OVERSEERR_API_KEY", "")
+
+def request_media(title):
+    headers = {"X-Api-Key": OVERSEERR_API_KEY}
+    try:
+        search_resp = requests.get(
+            f"{OVERSEERR_URL}/api/v1/search",
+            params={"query": title},
+            headers=headers,
+            timeout=10,
+        )
+        search_resp.raise_for_status()
+        results = search_resp.json().get("results", [])
+        if not results:
+            return f"Sorry Sir, I could not find {title} on Overseerr."
+
+        match = results[0]
+        media_type = match.get("mediaType")
+        media_id = match.get("id")
+        found_title = match.get("title") or match.get("name", title)
+
+        body = {"mediaType": media_type, "mediaId": media_id}
+        if media_type == "tv":
+            body["seasons"] = "all"
+
+        req_resp = requests.post(
+            f"{OVERSEERR_URL}/api/v1/request",
+            json=body,
+            headers=headers,
+            timeout=10,
+        )
+        if req_resp.status_code == 201:
+            return f"Request submitted for {found_title}, Sir."
+        elif req_resp.status_code == 409:
+            return f"{found_title} has already been requested, Sir."
+        else:
+            return f"The request for {found_title} failed with status {req_resp.status_code}, Sir."
+    except requests.RequestException as e:
+        return f"Could not reach Overseerr, Sir. {e}"
 
 async def get_weather(city_name):
     async with python_weather.Client(unit=python_weather.IMPERIAL) as client:
@@ -47,6 +89,12 @@ def parse_command(command):
         print(query)
         response = assist.ask_question_memory(query)
         done = assist.TTS(response)
+
+    if "request" in command:
+        title = command.split("-", 1)[1] if "-" in command else command
+        result = request_media(title)
+        print(result)
+        assist.TTS(result)
         
 
     
