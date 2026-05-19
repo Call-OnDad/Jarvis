@@ -2,13 +2,9 @@ from openai import OpenAI
 import ollama
 import time
 from pygame import mixer
-import os
-from dotenv import load_dotenv
+import config
 
-load_dotenv()
-
-# Initialize the OpenAI client and mixer
-client = OpenAI()
+client = OpenAI(api_key=config.get("OPENAI_API_KEY"))
 mixer.init()
 
 # Global variable to store conversation history

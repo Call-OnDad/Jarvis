@@ -1,3 +1,4 @@
+import config  # must be first — loads credentials before other modules import
 from RealtimeSTT import AudioToTextRecorder
 import assist
 import time

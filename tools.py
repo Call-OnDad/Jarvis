@@ -5,12 +5,10 @@ from icrawler.builtin import GoogleImageCrawler
 import os
 import spot
 import requests
-from dotenv import load_dotenv
+import config
 
-load_dotenv()
-
-OVERSEERR_URL = os.environ.get("OVERSEERR_URL", "http://localhost:5055")
-OVERSEERR_API_KEY = os.environ.get("OVERSEERR_API_KEY", "")
+OVERSEERR_URL = config.get("OVERSEERR_URL", "http://localhost:5055")
+OVERSEERR_API_KEY = config.get("OVERSEERR_API_KEY")
 
 def request_media(title):
     headers = {"X-Api-Key": OVERSEERR_API_KEY}

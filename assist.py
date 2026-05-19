@@ -1,17 +1,13 @@
 from openai import OpenAI
 import time
 from pygame import mixer
-import os
-from dotenv import load_dotenv
+import config
 
-load_dotenv()
-
-# Initialize the client and mixer
-client = OpenAI(default_headers={"OpenAI-Beta": "assistants=v2"})
+client = OpenAI(api_key=config.get("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v2"})
 mixer.init()
 
-assistant_id = os.environ.get("OPENAI_ASSISTANT_ID", "")
-thread_id = os.environ.get("OPENAI_THREAD_ID", "")
+assistant_id = config.get("OPENAI_ASSISTANT_ID")
+thread_id = config.get("OPENAI_THREAD_ID")
 
 # Retrieve the assistant and thread
 assistant = client.beta.assistants.retrieve(assistant_id)
