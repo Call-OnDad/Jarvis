@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "ARIA",
+    "slug": "aria-assistant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#07070F"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "ARIA needs your microphone to hear your requests."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#07070F"
+      },
+      "permissions": ["android.permission.RECORD_AUDIO"]
+    },
+    "plugins": ["expo-av"]
+  }
+}
