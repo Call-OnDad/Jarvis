@@ -1,103 +1,68 @@
-import python_weather
-import asyncio
+"""
+AHAS -- tools.py
+Homelab command handlers. Claude appends #command:<name>:<args> to responses.
+parse_command() dispatches to the right function and feeds results back to Claude.
+"""
+
 import assist
-from icrawler.builtin import GoogleImageCrawler
-import os
-import spot
-import requests
-import config
-
-OVERSEERR_URL = config.get("OVERSEERR_URL", "http://localhost:5055")
-OVERSEERR_API_KEY = config.get("OVERSEERR_API_KEY")
-
-def request_media(title):
-    headers = {"X-Api-Key": OVERSEERR_API_KEY}
-    try:
-        search_resp = requests.get(
-            f"{OVERSEERR_URL}/api/v1/search",
-            params={"query": title},
-            headers=headers,
-            timeout=10,
-        )
-        search_resp.raise_for_status()
-        results = search_resp.json().get("results", [])
-        if not results:
-            return f"Sorry Sir, I could not find {title} on Overseerr."
-
-        match = results[0]
-        media_type = match.get("mediaType")
-        media_id = match.get("id")
-        found_title = match.get("title") or match.get("name", title)
-
-        body = {"mediaType": media_type, "mediaId": media_id}
-        if media_type == "tv":
-            body["seasons"] = "all"
-
-        req_resp = requests.post(
-            f"{OVERSEERR_URL}/api/v1/request",
-            json=body,
-            headers=headers,
-            timeout=10,
-        )
-        if req_resp.status_code == 201:
-            return f"Request submitted for {found_title}, Sir."
-        elif req_resp.status_code == 409:
-            return f"{found_title} has already been requested, Sir."
-        else:
-            return f"The request for {found_title} failed with status {req_resp.status_code}, Sir."
-    except requests.RequestException as e:
-        return f"Could not reach Overseerr, Sir. {e}"
-
-async def get_weather(city_name):
-    async with python_weather.Client(unit=python_weather.IMPERIAL) as client:
-        weather = await client.get(city_name)
-        return weather
-
-def search(query):
-    google_Crawler = GoogleImageCrawler(storage = {"root_dir": r'./images'})
-    google_Crawler.crawl(keyword = query, max_num = 1)
+import proxmox
+from config import CONTAINER_NAMES
 
 
-def parse_command(command):
-    if "weather" in command:
-        weather_description = asyncio.run(get_weather("Chicago"))
-        query = "System information: " + str(weather_description)
-        print(query)
-        response = assist.ask_question_memory(query)
-        done = assist.TTS(response)
+def parse_command(command: str):
+    command = command.strip().lower()
+    parts   = command.split(":")
 
-    if "search" in command:
-        files = os.listdir("./images")
-        [os.remove(os.path.join("./images", f))for f in files]
-        query = command.split("-")[1]
-        search(query)
-    
-    if "play" in command:
-        spot.start_music()
+    if not parts:
+        return
 
-    if "pause" in command:
-        spot.stop_music()
-    
-    if "skip" in command:
-        spot.skip_to_next()
-    
-    if "previous" in command:
-        spot.skip_to_previous()
-    
-    if "spotify" in command:
-        spotify_info = spot.get_current_playing_info()
-        query = "System information: " + str(spotify_info)
-        print(query)
-        response = assist.ask_question_memory(query)
-        done = assist.TTS(response)
+    action = parts[0]
 
-    if "request" in command:
-        title = command.split("-", 1)[1] if "-" in command else command
-        result = request_media(title)
-        print(result)
-        assist.TTS(result)
-        
+    if action == "proxmox_status":
+        result = proxmox.get_host_status()
+        _feed_back(result)
 
-    
+    elif action == "container_list":
+        result = proxmox.get_container_list()
+        _feed_back(result)
 
-        
+    elif action == "container_start" and len(parts) >= 2:
+        vmid   = parts[1]
+        result = proxmox.container_action(vmid, "start")
+        _feed_back(result)
+
+    elif action == "container_stop" and len(parts) >= 2:
+        vmid   = parts[1]
+        result = proxmox.container_action(vmid, "stop")
+        _feed_back(result)
+
+    elif action == "disk_health":
+        result = proxmox.get_disk_usage()
+        _feed_back(result)
+
+    elif action == "service_status":
+        result = proxmox.check_services()
+        _feed_back(result)
+
+    elif action == "clear_memory":
+        assist.clear_memory()
+        assist.TTS(f"Memory cleared, {_owner()}.")
+
+    else:
+        print(f"[AHAS] Unknown command: {command}")
+
+
+def _feed_back(system_info: str):
+    print(f"[AHAS tools] {system_info}")
+    prompt   = f"System data: {system_info}"
+    response = assist.ask_question_memory(prompt)
+    print(f"[AHAS] {response}")
+    assist.speak(response)
+    if "#" in response and len(response.split("#")) > 1:
+        second_command = response.split("#")[1]
+        parse_command(second_command)
+
+
+def _owner():
+    from config import OWNER_NAME
+    return OWNER_NAME

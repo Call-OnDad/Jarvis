@@ -1,53 +1,95 @@
-# Jarvis
-This Python script, jarvis.py, emulates a conversational AI assistant similar to Jarvis from Iron Man. It utilizes OpenAI's Whisper V3 for accurate speech recognition, GPT-3.5 Turbo for intelligent and context-aware response generation, and OpenAI's TTS (Text-to-Speech) to verbalize responses.
+# AHAS -- Antony's Home Automation System
 
-# Features
-Real-Time Speech Recognition: Leveraging Whisper V3 to convert spoken language into text.
-Intelligent Response Generation: Uses GPT-3.5 Turbo to generate relevant responses based on the user's input.
-Speech Output: Converts text responses back into speech using OpenAI's TTS, providing a seamless conversational experience.
-Hotword Detection: The script actively listens for specific trigger words to initiate interaction.
+Voice-activated homelab command layer running on Proxmox.
+Built on Concept-Bytes/Jarvis. Powered by Claude (Anthropic).
 
-# Requirements
-Python 3.9+
-OpenAI's Whisper, GPT, and TTS models
-SpeechRecognition library
-PyTorch
+---
 
-## Installation
-Ensure Python and the necessary libraries are installed:
+## What it does
+
+- Wake word: **"AHAS"** or **"Jarvis"**
+- Answers questions about your Proxmox host, containers, storage, services
+- Starts/stops LXC containers by voice
+- Feeds live system data back through Claude for intelligent responses
+- British voice (Ryan Neural via edge-tts -- free, no API key needed)
+
+---
+
+## Quick Deploy (Proxmox LXC)
+
+### 1. Create the container
+
+```bash
+sudo pct create 117 local:vztmpl/ubuntu-22.04-standard_22.04-1_amd64.tar.zst \
+  --hostname ahas \
+  --memory 1024 \
+  --cores 2 \
+  --rootfs local-lvm:8 \
+  --net0 name=eth0,bridge=vmbr0,ip=192.168.0.60/24,gw=192.168.0.1 \
+  --nameserver 192.168.0.3 \
+  --features nesting=1 \
+  --unprivileged 1 \
+  --start 1
 ```
-pip install openai speechrecognition torch
+
+### 2. Install dependencies
+
+```bash
+apt-get update && apt-get install -y python3 python3-pip python3-venv git portaudio19-dev ffmpeg
+cd /opt && git clone https://github.com/Call-OnDad/Jarvis ahas
+cd ahas && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
 
-Go to https://platform.openai.com/assistants to set up your assistant to get
--assistant id
--thread id
+### 3. Set your API key
 
-## Usage
-Set Up Your Microphone: Ensure your microphone is set up and configured as the default recording device.
-Run the Script: Start the script using the command:
+```bash
+cp /opt/ahas/.env.example /opt/ahas/.env
+# Edit .env and set ANTHROPIC_API_KEY
 ```
-python jarvis.py
+
+### 4. Systemd service
+
+```ini
+[Unit]
+Description=AHAS Voice Assistant
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ahas
+EnvironmentFile=/opt/ahas/.env
+ExecStart=/opt/ahas/venv/bin/python ahas.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
 ```
-Speak to Jarvis: Begin speaking to the system. Use the hotwords like "Hey Jarvis" to initiate commands. Note it may take some time to load the model.
 
-## Command Line Arguments
---model: Specify the Whisper model size (default: tiny). Options are tiny, base, small, medium, large.
---non_english: Use a non-English model if required.
---energy_threshold: Set the microphone energy threshold for detecting speech.
---record_timeout: Duration in seconds for how real-time the recording is.
---phrase_timeout: Duration in seconds for the silence interval to detect the end of a phrase.
+`systemctl enable ahas && systemctl start ahas`
 
-## Configuration
-Modify the script's hot_words list to customize the trigger words according to your preference.
-Tweak the energy_threshold, record_timeout, and phrase_timeout settings to optimize speech detection based on your environment.
+---
 
-##Notes
-Ensure that your API keys and model access privileges are correctly configured before running the script.
-The quality of TTS output and the responsiveness of the assistant depend on the selected models and system performance.
+## File Structure
 
-## License
-Distributed under the MIT License. See LICENSE for more information.
+```
+ahas/
+|-- ahas.py          # Main loop
+|-- assist.py        # Claude API + TTS
+|-- tools.py         # Command dispatcher
+|-- proxmox.py       # Proxmox API
+|-- config.py        # All settings -- edit this
+|-- requirements.txt
+`-- .env.example
+```
 
-## Contact
-Reach out with any feedback or support needs via GitHub or email.
+---
+
+## Voice Commands
+
+| You say | AHAS does |
+|---------|-----------|
+| "AHAS, how's the server?" | Queries Proxmox host status |
+| "AHAS, list all containers" | Lists running/stopped LXCs |
+| "AHAS, start container 114" | Starts WordPress CT |
+| "AHAS, check disk space" | Reports storage usage |
+| "AHAS, are all services up?" | HTTP checks all key services |

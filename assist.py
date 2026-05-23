@@ -1,45 +1,108 @@
-from openai import OpenAI
-import time
-from pygame import mixer
-import config
+"""
+AHAS -- assist.py
+Claude (Anthropic) replaces OpenAI for intelligence.
+edge-tts replaces OpenAI TTS (free, high quality, British voice).
+"""
 
-client = OpenAI(api_key=config.get("OPENAI_API_KEY"), default_headers={"OpenAI-Beta": "assistants=v2"})
-mixer.init()
+import anthropic
+import asyncio
+import edge_tts
+import pygame
+import os
+import tempfile
+from config import (
+    ANTHROPIC_API_KEY, CLAUDE_MODEL, SYSTEM_PROMPT,
+    TTS_ENGINE, TTS_VOICE, OPENAI_TTS_VOICE, OWNER_NAME
+)
 
-assistant_id = config.get("OPENAI_ASSISTANT_ID")
-thread_id = config.get("OPENAI_THREAD_ID")
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-# Retrieve the assistant and thread
-assistant = client.beta.assistants.retrieve(assistant_id)
-thread = client.beta.threads.retrieve(thread_id)
+_conversation_history = []
+MAX_HISTORY = 20
 
-def ask_question_memory(question):
-    global thread
-    client.beta.threads.messages.create(thread.id, role="user", content=question)
-    run = client.beta.threads.runs.create(thread_id=thread.id, assistant_id=assistant.id)
-    
-    while (run_status := client.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)).status != 'completed':
-        if run_status.status == 'failed':
-            return "The run failed."
-        time.sleep(1)
-    
-    messages = client.beta.threads.messages.list(thread_id=thread.id)
-    return messages.data[0].content[0].text.value
 
-def generate_tts(sentence, speech_file_path):
-    response = client.audio.speech.create(model="tts-1", voice="echo", input=sentence)
-    response.stream_to_file(speech_file_path)
-    return str(speech_file_path)
+def ask_question_memory(question: str) -> str:
+    global _conversation_history
 
-def play_sound(file_path):
-    mixer.music.load(file_path)
-    mixer.music.play()
+    _conversation_history.append({"role": "user", "content": question})
 
-def TTS(text):
-    speech_file_path = generate_tts(text, "speech.mp3")
-    play_sound(speech_file_path)
-    while mixer.music.get_busy():
-        time.sleep(1)
-    mixer.music.unload()
-    os.remove(speech_file_path)
+    if len(_conversation_history) > MAX_HISTORY * 2:
+        _conversation_history = _conversation_history[-(MAX_HISTORY * 2):]
+
+    try:
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=_conversation_history,
+        )
+        reply = response.content[0].text
+        _conversation_history.append({"role": "assistant", "content": reply})
+        return reply
+
+    except anthropic.AuthenticationError:
+        return "Authentication failed. Please check your Anthropic API key."
+    except Exception as e:
+        return f"I encountered an error: {str(e)}"
+
+
+def clear_memory():
+    global _conversation_history
+    _conversation_history = []
+    return "Memory cleared."
+
+
+pygame.mixer.init()
+
+
+async def _edge_tts_generate(text: str, output_path: str):
+    communicate = edge_tts.Communicate(text, TTS_VOICE)
+    await communicate.save(output_path)
+
+
+def TTS(text: str) -> str:
+    if not text.strip():
+        return "done"
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+
+    try:
+        if TTS_ENGINE == "edge":
+            asyncio.run(_edge_tts_generate(text, tmp_path))
+
+        elif TTS_ENGINE == "openai":
+            from openai import OpenAI
+            oai = OpenAI()
+            response = oai.audio.speech.create(
+                model="tts-1", voice=OPENAI_TTS_VOICE, input=text
+            )
+            response.stream_to_file(tmp_path)
+
+        elif TTS_ENGINE == "pyttsx3":
+            import pyttsx3
+            engine = pyttsx3.init()
+            engine.save_to_file(text, tmp_path)
+            engine.runAndWait()
+
+        pygame.mixer.music.load(tmp_path)
+        pygame.mixer.music.play()
+        import time
+        while pygame.mixer.music.get_busy():
+            time.sleep(0.1)
+        pygame.mixer.music.unload()
+
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
     return "done"
+
+
+def speak(text: str):
+    speech = text.split("#")[0].strip()
+    if speech:
+        TTS(speech)

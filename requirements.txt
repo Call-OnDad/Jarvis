@@ -1,7 +1,19 @@
-pyaudio
-SpeechRecognition
---extra-index-url https://download.pytorch.org/whl/cu116
+# AHAS -- requirements.txt
+# Install: pip install -r requirements.txt
+
+anthropic>=0.25.0
+
+RealtimeSTT>=0.3.0
 torch
-git+https://github.com/openai/whisper.git
-requests
-python-dotenv
+
+edge-tts>=6.1.9
+
+# pyttsx3
+# openai
+
+requests>=2.31.0
+urllib3>=2.0.0
+
+pygame>=2.5.0
+
+asyncio
