@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Speech from 'expo-speech';
 import { loadConfig } from './src/config';
@@ -12,9 +12,12 @@ import MessageBubble from './src/components/MessageBubble';
 export default function App() {
   const [status, setStatus] = useState('idle');
   const [messages, setMessages] = useState([]);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const listRef = useRef(null);
 
-  useEffect(() => { loadConfig(); }, []);
+  useEffect(() => {
+    loadConfig().finally(() => setConfigLoaded(true));
+  }, []);
 
   function addMessage(role, text) {
     setMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, role, text }]);
@@ -66,6 +69,15 @@ export default function App() {
     }
   }
 
+  if (!configLoaded) {
+    return (
+      <SafeAreaView style={[styles.container, styles.center]}>
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color="#C9A84C" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -88,6 +100,7 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#07070F' },
+  center: { justifyContent: 'center', alignItems: 'center' },
   list: { paddingHorizontal: 16, paddingTop: 20, flexGrow: 1 },
   orbArea: { alignItems: 'center', paddingVertical: 36 },
 });

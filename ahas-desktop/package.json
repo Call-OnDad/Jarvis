@@ -1,0 +1,24 @@
+{
+  "name": "ahas-desktop",
+  "version": "1.0.0",
+  "description": "AHAS — Home Intelligence desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "media.call-on.ahas",
+    "productName": "AHAS",
+    "win": {
+      "target": [{ "target": "portable", "arch": ["x64"] }],
+      "icon": "assets/icon.ico"
+    },
+    "portable": { "artifactName": "AHAS-${version}-portable.exe" },
+    "files": ["main.js", "assets/**"]
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}
