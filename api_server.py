@@ -635,6 +635,152 @@ def cache_age_endpoint():
     return jsonify(nexus_cache.all_ages())
 
 
+# ── Discord channel read ──────────────────────────────────────────────────────
+
+def _read_discord_channel_messages(channel_name, limit=8):
+    channel_id = DISCORD_CHANNELS.get(channel_name.lower().strip(), "")
+    if not channel_id:
+        return {"error": f"Unknown channel: {channel_name}"}
+    if not DISCORD_BOT_TOKEN:
+        return {"error": "DISCORD_BOT_TOKEN not set"}
+    try:
+        req = urllib.request.Request(
+            f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
+            headers={
+                "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
+                "User-Agent": "DiscordBot (nexus, 1.0)"
+            }
+        )
+        with urllib.request.urlopen(req, timeout=15) as r:
+            msgs = json.loads(r.read())
+        return {"channel": channel_name, "messages": [
+            {
+                "author": m["author"]["username"],
+                "content": m["content"][:300],
+                "ts": m["timestamp"][:16].replace("T", " ")
+            } for m in msgs if m.get("content")
+        ]}
+    except urllib.error.HTTPError as e:
+        return {"error": f"Discord {e.code}: {e.read().decode(errors='ignore')[:100]}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.route("/api/discord/channel/<name>")
+def discord_channel(name):
+    return jsonify(_read_discord_channel_messages(name))
+
+
+# ── Structured email inbox ─────────────────────────────────────────────────────
+
+def _fetch_imap_structured(account, count=8, unread_only=False):
+    ssl  = account.get("ssl", True)
+    conn = imaplib.IMAP4_SSL(account["host"]) if ssl else imaplib.IMAP4(account["host"])
+    conn.login(account["user"], account["password"])
+    conn.select("inbox")
+    criteria = "UNSEEN" if unread_only else "ALL"
+    _, msgs   = conn.search(None, criteria)
+    ids       = msgs[0].split()[-count:]
+    results   = []
+    for mid in reversed(ids):
+        _, data = conn.fetch(mid, "(RFC822)")
+        msg     = emaillib.message_from_bytes(data[0][1])
+        subject_raw, enc = decode_header(msg["Subject"] or "(no subject)")[0]
+        subject = subject_raw.decode(enc or "utf-8") if isinstance(subject_raw, bytes) else (subject_raw or "(no subject)")
+        # Get body preview
+        preview = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    try:
+                        preview = part.get_payload(decode=True).decode(errors="ignore")[:120]
+                    except:
+                        pass
+                    break
+        else:
+            try:
+                preview = msg.get_payload(decode=True).decode(errors="ignore")[:120]
+            except:
+                pass
+        results.append({
+            "from":    msg["From"][:60] if msg["From"] else "Unknown",
+            "subject": subject[:80],
+            "date":    msg["Date"][:25] if msg["Date"] else "",
+            "preview": preview.strip()[:120]
+        })
+    conn.logout()
+    return results
+
+@app.route("/api/email/inbox")
+def email_inbox():
+    accounts = _load_email_accounts()
+    if not accounts:
+        return jsonify({"error": "No email accounts configured"})
+    result = []
+    for acc in accounts:
+        try:
+            msgs = _fetch_imap_structured(acc, count=8)
+            result.append({"account": acc["name"], "messages": msgs, "error": None})
+        except Exception as e:
+            result.append({"account": acc["name"], "messages": [], "error": str(e)})
+    return jsonify({"accounts": result})
+
+
+# ── Community / DB stats ───────────────────────────────────────────────────────
+
+DB_HOST = "192.168.0.6"
+DB_PORT = 3306
+
+@app.route("/api/community/stats")
+def community_stats():
+    # Run mysql inside CT102 via Proxmox pct exec — no SSH key needed
+    cmd = (
+        "mysql -u root -e \""
+        "SELECT table_schema, table_name, table_rows "
+        "FROM information_schema.tables "
+        "WHERE table_schema IN ('Callon-dad','Callon-mom') "
+        "AND table_rows > 0 "
+        "ORDER BY table_schema, table_rows DESC;"
+        "\" 2>/dev/null"
+    )
+    raw = pct_exec_cmd("102", cmd)
+    if not raw or "error" in raw.lower() or "denied" in raw.lower():
+        return jsonify({"error": raw or "DB unavailable via CT102"})
+
+    # Parse tab-separated output into {site: {table: rows}}
+    stats = {}
+    for line in raw.strip().splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3 or parts[0] in ("table_schema", "TABLE_SCHEMA"):
+            continue
+        schema, table, rows_str = parts[0], parts[1], parts[2]
+        key = schema.replace("Callon-", "").lower()
+        try:
+            stats.setdefault(key, {})[table] = int(rows_str)
+        except ValueError:
+            pass
+    return jsonify(stats if stats else {"error": "No data returned — check CT102 mysql access"})
+
+
+# ── Domain ping ────────────────────────────────────────────────────────────────
+
+@app.route("/api/domains/status")
+def domains_status():
+    domains = ["call-on.dad", "call-on.mom", "call-on.media", "call-on.shop"]
+    results = {}
+    for d in domains:
+        try:
+            req = urllib.request.Request(
+                f"https://{d}", headers={"User-Agent": "NEXUS/4.0"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as r:
+                results[d] = {"status": "up", "code": r.status}
+        except urllib.error.HTTPError as e:
+            results[d] = {"status": "up" if e.code < 500 else "down", "code": e.code}
+        except Exception as e:
+            results[d] = {"status": "down", "error": str(e)[:60]}
+    return jsonify(results)
+
+
 # ── Whisper transcription ─────────────────────────────────────────────────────
 
 _whisper_model     = None

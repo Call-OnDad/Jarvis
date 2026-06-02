@@ -6,10 +6,9 @@
   <meta name="theme-color" content="#07070F">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>NEXUS</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 
@@ -21,107 +20,58 @@
     <!-- ── TOP BAR ──────────────────────────────────────────────── -->
     <header class="topbar">
       <div class="topbar-logo">N<em>E</em>XUS</div>
-
       <div class="topbar-services">
-        <span class="svc-chip" id="svc-nexus" title="NEXUS API">
-          <span class="svc-dot"></span>NEXUS
-        </span>
-        <span class="svc-chip" id="svc-ha" title="Home Assistant">
-          <span class="svc-dot"></span>HA
-        </span>
-        <span class="svc-chip" id="svc-plex" title="Plex Media">
-          <span class="svc-dot"></span>PLEX
-        </span>
-        <span class="svc-chip" id="svc-n8n" title="n8n Automation">
-          <span class="svc-dot"></span>N8N
-        </span>
-        <span class="svc-chip" id="svc-pihole" title="Pi-hole DNS">
-          <span class="svc-dot"></span>DNS
-        </span>
+        <span class="svc-chip" id="svc-nexus"><span class="svc-dot"></span>NEXUS</span>
+        <span class="svc-chip" id="svc-ha"><span class="svc-dot"></span>HA</span>
+        <span class="svc-chip" id="svc-plex"><span class="svc-dot"></span>PLEX</span>
+        <span class="svc-chip" id="svc-n8n"><span class="svc-dot"></span>N8N</span>
+        <span class="svc-chip" id="svc-pihole"><span class="svc-dot"></span>DNS</span>
       </div>
-
       <div class="topbar-right">
-        <span class="topbar-memory" id="topbar-memory" title="Conversation messages in memory">◈ 0</span>
+        <span class="topbar-memory" id="topbar-memory">◈ 0</span>
         <span class="topbar-clock" id="clock">--:--</span>
       </div>
     </header>
 
-    <!-- ── MAIN LAYOUT ──────────────────────────────────────────── -->
     <div class="main">
 
-      <!-- Left nav -->
-      <nav class="leftnav" aria-label="Departments">
-        <button class="nav-btn active" data-dept="nexus" aria-pressed="true">
-          <span class="nav-icon">◈</span>
-          <span class="nav-label">NEXUS AI</span>
-        </button>
-        <button class="nav-btn" data-dept="infra" aria-pressed="false">
-          <span class="nav-icon">⬡</span>
-          <span class="nav-label">DEV / INFRA</span>
-        </button>
-        <button class="nav-btn" data-dept="marketing" aria-pressed="false">
-          <span class="nav-icon">◉</span>
-          <span class="nav-label">MARKETING</span>
-        </button>
-        <button class="nav-btn" data-dept="business" aria-pressed="false">
-          <span class="nav-icon">◆</span>
-          <span class="nav-label">BUSINESS</span>
-        </button>
-        <button class="nav-btn" data-dept="community" aria-pressed="false">
-          <span class="nav-icon">◎</span>
-          <span class="nav-label">COMMUNITY</span>
-        </button>
-        <button class="nav-btn" data-dept="security" aria-pressed="false">
-          <span class="nav-icon">⬣</span>
-          <span class="nav-label">SECURITY</span>
-        </button>
-        <button class="nav-btn" data-dept="email" aria-pressed="false">
-          <span class="nav-icon">✉</span>
-          <span class="nav-label">EMAIL</span>
-        </button>
+      <!-- ── LEFT NAV ──────────────────────────────────────────── -->
+      <nav class="leftnav">
+        <button class="nav-btn active" data-dept="nexus"     aria-pressed="true"><span class="nav-icon">◈</span><span class="nav-label">NEXUS AI</span></button>
+        <button class="nav-btn"        data-dept="infra"     aria-pressed="false"><span class="nav-icon">⬡</span><span class="nav-label">DEV / INFRA</span></button>
+        <button class="nav-btn"        data-dept="marketing" aria-pressed="false"><span class="nav-icon">◉</span><span class="nav-label">MARKETING</span></button>
+        <button class="nav-btn"        data-dept="business"  aria-pressed="false"><span class="nav-icon">◆</span><span class="nav-label">BUSINESS</span></button>
+        <button class="nav-btn"        data-dept="community" aria-pressed="false"><span class="nav-icon">◎</span><span class="nav-label">COMMUNITY</span></button>
+        <button class="nav-btn"        data-dept="security"  aria-pressed="false"><span class="nav-icon">⬣</span><span class="nav-label">SECURITY</span></button>
+        <button class="nav-btn"        data-dept="email"     aria-pressed="false"><span class="nav-icon">✉</span><span class="nav-label">EMAIL</span></button>
         <div class="nav-spacer"></div>
-        <button class="nav-btn nav-btn-sm" id="refresh-btn" title="Refresh all data">
-          <span class="nav-icon">↻</span>
-          <span class="nav-label">REFRESH</span>
-        </button>
+        <button class="nav-btn nav-btn-sm" id="refresh-btn"><span class="nav-icon">↻</span><span class="nav-label">REFRESH</span></button>
       </nav>
 
-      <!-- Center content panel -->
-      <main class="content" role="main">
+      <!-- ── CENTER CONTENT ────────────────────────────────────── -->
+      <main class="content">
 
-        <!-- NEXUS AI ─────────────────────────────────── -->
-        <section class="dept-panel" id="dept-nexus" aria-label="NEXUS AI">
+        <!-- NEXUS AI ──────────────────────────────── -->
+        <section class="dept-panel" id="dept-nexus">
           <div class="panel-header">
             <h2 class="panel-title" style="--accent:var(--cyan)">◈ NEXUS AI</h2>
             <span class="panel-sub">Intelligence · Automation · Control</span>
           </div>
           <div class="panel-grid">
-            <div class="card card-wide">
-              <div class="card-title">SYSTEM STATUS</div>
+            <div class="card">
+              <div class="card-title">SYSTEM</div>
               <div class="stat-row">
-                <div class="stat-item">
-                  <div class="stat-value" id="nexus-version">—</div>
-                  <div class="stat-label">VERSION</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value" id="nexus-memory-count">—</div>
-                  <div class="stat-label">MEMORY</div>
-                </div>
-                <div class="stat-item">
-                  <div class="stat-value" id="nexus-cache-pools">—</div>
-                  <div class="stat-label">CACHE POOLS</div>
-                </div>
+                <div class="stat-item"><div class="stat-value" id="nexus-version">—</div><div class="stat-label">VERSION</div></div>
+                <div class="stat-item"><div class="stat-value" id="nexus-memory-count">—</div><div class="stat-label">MEMORY</div></div>
+                <div class="stat-item"><div class="stat-value" id="nexus-cache-pools">—</div><div class="stat-label">CACHE</div></div>
               </div>
             </div>
             <div class="card">
               <div class="card-title">LIVE TOOLS</div>
               <div class="tool-grid">
-                <div class="tool-chip" data-tool="Proxmox">PROXMOX</div>
-                <div class="tool-chip" data-tool="HA">HA</div>
-                <div class="tool-chip" data-tool="Search">SEARCH</div>
-                <div class="tool-chip" data-tool="Email">EMAIL</div>
-                <div class="tool-chip" data-tool="Discord">DISCORD</div>
-                <div class="tool-chip" data-tool="SSH">SSH</div>
+                <div class="tool-chip">PROXMOX</div><div class="tool-chip">HA</div>
+                <div class="tool-chip">SEARCH</div><div class="tool-chip">EMAIL</div>
+                <div class="tool-chip">DISCORD</div><div class="tool-chip">SSH</div>
               </div>
             </div>
             <div class="card card-wide">
@@ -135,127 +85,143 @@
           </div>
         </section>
 
-        <!-- DEV / INFRA ──────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-infra" aria-label="Dev and Infra">
+        <!-- DEV / INFRA ───────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-infra">
           <div class="panel-header">
             <h2 class="panel-title" style="--accent:var(--blue)">⬡ DEV / INFRA</h2>
             <span class="panel-sub" id="infra-updated">—</span>
           </div>
           <div class="panel-grid">
-            <div class="card">
-              <div class="card-title">CPU</div>
-              <div class="big-stat" id="infra-cpu">—</div>
-              <div class="bar-wrap"><div class="bar" id="infra-cpu-bar"></div></div>
-            </div>
-            <div class="card">
-              <div class="card-title">RAM</div>
-              <div class="big-stat" id="infra-ram">—</div>
-              <div class="bar-wrap"><div class="bar" id="infra-ram-bar"></div></div>
-            </div>
-            <div class="card">
-              <div class="card-title">LOAD AVG</div>
-              <div class="big-stat sm" id="infra-load">—</div>
-              <div class="stat-label">1m / 5m / 15m</div>
-            </div>
-            <div class="card card-full">
-              <div class="card-title">CONTAINERS</div>
-              <div class="ct-list" id="infra-ct-list">Loading…</div>
-            </div>
-            <div class="card card-full">
-              <div class="card-title">STORAGE</div>
-              <div class="storage-list" id="infra-storage">Loading…</div>
-            </div>
+            <div class="card"><div class="card-title">CPU</div><div class="big-stat" id="infra-cpu">—</div><div class="bar-wrap"><div class="bar" id="infra-cpu-bar"></div></div></div>
+            <div class="card"><div class="card-title">RAM</div><div class="big-stat" id="infra-ram">—</div><div class="bar-wrap"><div class="bar" id="infra-ram-bar"></div></div></div>
+            <div class="card"><div class="card-title">LOAD AVG</div><div class="big-stat sm" id="infra-load">—</div><div class="stat-label">1m / 5m / 15m</div></div>
+            <div class="card card-full"><div class="card-title">CONTAINERS</div><div class="ct-list" id="infra-ct-list">Loading…</div></div>
+            <div class="card card-full"><div class="card-title">STORAGE</div><div class="storage-list" id="infra-storage">Loading…</div></div>
           </div>
         </section>
 
-        <!-- MARKETING ────────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-marketing" aria-label="Marketing">
+        <!-- MARKETING ─────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-marketing">
           <div class="panel-header">
             <h2 class="panel-title" style="--accent:var(--amber)">◉ MARKETING</h2>
-            <span class="panel-sub">Discord dept channels</span>
+            <span class="panel-sub">call-on.dad · call-on.mom · content · SEO</span>
           </div>
           <div class="panel-grid">
             <div class="card card-wide">
-              <div class="card-title">POST TO #MARKETING</div>
-              <textarea class="discord-input" id="mkt-msg" placeholder="Marketing update, campaign brief, ad copy request…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="marketing" data-input="mkt-msg">→ SEND TO #MARKETING</button>
-            </div>
-            <div class="card card-wide">
-              <div class="card-title">POST TO #SEO</div>
-              <textarea class="discord-input" id="seo-msg" placeholder="SEO task, keyword research request, content brief…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="seo" data-input="seo-msg">→ SEND TO #SEO</button>
-            </div>
-            <div class="card card-wide">
-              <div class="card-title">POST TO #CONTENT</div>
-              <textarea class="discord-input" id="content-msg" placeholder="Content request, blog post brief, copy task…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="content" data-input="content-msg">→ SEND TO #CONTENT</button>
-            </div>
-            <div class="card card-full">
-              <div class="card-title">DISPATCH LOG</div>
-              <div class="dispatch-log" id="mkt-log"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- BUSINESS ─────────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-business" aria-label="Business">
-          <div class="panel-header">
-            <h2 class="panel-title" style="--accent:var(--violet)">◆ BUSINESS</h2>
-            <span class="panel-sub">Call-On Ltd operations</span>
-          </div>
-          <div class="panel-grid">
-            <div class="card">
-              <div class="card-title">DOMAINS</div>
-              <div class="domain-list">
-                <div class="domain-item"><span class="domain-dot green"></span>call-on.dad</div>
-                <div class="domain-item"><span class="domain-dot green"></span>call-on.mom</div>
-                <div class="domain-item"><span class="domain-dot green"></span>call-on.media</div>
-                <div class="domain-item"><span class="domain-dot green"></span>call-on.shop</div>
+              <div class="card-title-row">
+                <div class="card-title">#MARKETING ACTIVITY</div>
+                <button class="reload-btn" data-reload="marketing">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-marketing"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="mkt-msg" placeholder="Post to #marketing…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="marketing" data-input="mkt-msg">SEND →</button>
               </div>
             </div>
             <div class="card card-wide">
-              <div class="card-title">POST TO #BUSINESS</div>
-              <textarea class="discord-input" id="biz-msg" placeholder="Business update, strategy task, finance query…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="business" data-input="biz-msg">→ SEND TO #BUSINESS</button>
+              <div class="card-title-row">
+                <div class="card-title">#SEO ACTIVITY</div>
+                <button class="reload-btn" data-reload="seo">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-seo"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="seo-msg" placeholder="Post to #seo…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="seo" data-input="seo-msg">SEND →</button>
+              </div>
             </div>
             <div class="card card-wide">
-              <div class="card-title">POST TO #MANAGER</div>
-              <textarea class="discord-input" id="mgr-msg" placeholder="Cross-dept task, escalation, high-priority item…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="manager" data-input="mgr-msg">→ SEND TO #MANAGER</button>
-            </div>
-            <div class="card card-full">
-              <div class="card-title">DISPATCH LOG</div>
-              <div class="dispatch-log" id="biz-log"></div>
+              <div class="card-title-row">
+                <div class="card-title">#CONTENT ACTIVITY</div>
+                <button class="reload-btn" data-reload="content">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-content"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="content-msg" placeholder="Post to #content…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="content" data-input="content-msg">SEND →</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- COMMUNITY ────────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-community" aria-label="Community">
+        <!-- BUSINESS ──────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-business">
           <div class="panel-header">
-            <h2 class="panel-title" style="--accent:var(--green)">◎ COMMUNITY</h2>
-            <span class="panel-sub">call-on.dad · call-on.mom · engagement</span>
+            <h2 class="panel-title" style="--accent:var(--violet)">◆ BUSINESS</h2>
+            <span class="panel-sub">Call-On Ltd · domains · operations</span>
           </div>
           <div class="panel-grid">
-            <div class="card card-wide">
-              <div class="card-title">POST TO #COMMUNITY</div>
-              <textarea class="discord-input" id="cmty-msg" placeholder="Community update, engagement task, moderation note…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="community" data-input="cmty-msg">→ SEND TO #COMMUNITY</button>
+            <div class="card">
+              <div class="card-title">DOMAIN STATUS</div>
+              <div class="domain-list" id="domain-list">
+                <div class="domain-item"><span class="domain-dot"></span><span class="domain-name">call-on.dad</span><span class="domain-status">—</span></div>
+                <div class="domain-item"><span class="domain-dot"></span><span class="domain-name">call-on.mom</span><span class="domain-status">—</span></div>
+                <div class="domain-item"><span class="domain-dot"></span><span class="domain-name">call-on.media</span><span class="domain-status">—</span></div>
+                <div class="domain-item"><span class="domain-dot"></span><span class="domain-name">call-on.shop</span><span class="domain-status">—</span></div>
+              </div>
             </div>
             <div class="card card-wide">
-              <div class="card-title">POST TO #GENERAL</div>
-              <textarea class="discord-input" id="gen-msg" placeholder="General announcement or update…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="general" data-input="gen-msg">→ SEND TO #GENERAL</button>
+              <div class="card-title-row">
+                <div class="card-title">#BUSINESS ACTIVITY</div>
+                <button class="reload-btn" data-reload="business">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-business"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="biz-msg" placeholder="Post to #business…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="business" data-input="biz-msg">SEND →</button>
+              </div>
             </div>
-            <div class="card card-full">
-              <div class="card-title">DISPATCH LOG</div>
-              <div class="dispatch-log" id="cmty-log"></div>
+            <div class="card card-wide">
+              <div class="card-title-row">
+                <div class="card-title">#MANAGER ACTIVITY</div>
+                <button class="reload-btn" data-reload="manager">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-manager"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="mgr-msg" placeholder="Post to #manager…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="manager" data-input="mgr-msg">SEND →</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- SECURITY ─────────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-security" aria-label="Security">
+        <!-- COMMUNITY ─────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-community">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--green)">◎ COMMUNITY</h2>
+            <span class="panel-sub">call-on.dad · call-on.mom · member engagement</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-full">
+              <div class="card-title">SITE DATABASE STATS</div>
+              <div class="db-stats-grid" id="db-stats"><div class="feed-loading">Loading stats…</div></div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title-row">
+                <div class="card-title">#COMMUNITY ACTIVITY</div>
+                <button class="reload-btn" data-reload="community">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-community"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="cmty-msg" placeholder="Post to #community…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="community" data-input="cmty-msg">SEND →</button>
+              </div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title-row">
+                <div class="card-title">#GENERAL ACTIVITY</div>
+                <button class="reload-btn" data-reload="general">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-general"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="gen-msg" placeholder="Post to #general…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="general" data-input="gen-msg">SEND →</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECURITY ──────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-security">
           <div class="panel-header">
             <h2 class="panel-title" style="--accent:var(--red)">⬣ SECURITY</h2>
             <span class="panel-sub">CrowdSec · Caddy · Tailscale</span>
@@ -264,258 +230,333 @@
             <div class="card card-full">
               <div class="card-title">SERVICE HEALTH</div>
               <div class="svc-health-grid">
-                <div class="svc-row"><span class="svc-dot2" id="sh-nexus"></span><span>NEXUS API</span><span class="svc-status-txt" id="sh-nexus-txt">—</span></div>
-                <div class="svc-row"><span class="svc-dot2" id="sh-ha"></span><span>Home Assistant</span><span class="svc-status-txt" id="sh-ha-txt">—</span></div>
-                <div class="svc-row"><span class="svc-dot2" id="sh-plex"></span><span>Plex Media</span><span class="svc-status-txt" id="sh-plex-txt">—</span></div>
-                <div class="svc-row"><span class="svc-dot2" id="sh-n8n"></span><span>n8n Automation</span><span class="svc-status-txt" id="sh-n8n-txt">—</span></div>
-                <div class="svc-row"><span class="svc-dot2" id="sh-pihole"></span><span>Pi-hole DNS</span><span class="svc-status-txt" id="sh-pihole-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-nexus"></span><span class="svc-name">NEXUS API</span><span class="svc-status-txt" id="sh-nexus-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-ha"></span><span class="svc-name">Home Assistant</span><span class="svc-status-txt" id="sh-ha-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-plex"></span><span class="svc-name">Plex Media</span><span class="svc-status-txt" id="sh-plex-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-n8n"></span><span class="svc-name">n8n Automation</span><span class="svc-status-txt" id="sh-n8n-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-pihole"></span><span class="svc-name">Pi-hole DNS</span><span class="svc-status-txt" id="sh-pihole-txt">—</span></div>
               </div>
             </div>
             <div class="card card-wide">
-              <div class="card-title">POST TO #SECURITY</div>
-              <textarea class="discord-input" id="sec-msg" placeholder="Security alert, audit task, vulnerability report…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="security" data-input="sec-msg">→ SEND TO #SECURITY</button>
+              <div class="card-title-row">
+                <div class="card-title">#SECURITY ACTIVITY</div>
+                <button class="reload-btn" data-reload="security">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-security"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="sec-msg" placeholder="Post to #security…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="security" data-input="sec-msg">SEND →</button>
+              </div>
             </div>
             <div class="card card-wide">
-              <div class="card-title">POST TO #INFRA</div>
-              <textarea class="discord-input" id="infra-msg" placeholder="Infrastructure task, server change, deployment…" rows="4"></textarea>
-              <button class="disc-send-btn" data-channel="infra" data-input="infra-msg">→ SEND TO #INFRA</button>
-            </div>
-            <div class="card card-full">
-              <div class="card-title">DISPATCH LOG</div>
-              <div class="dispatch-log" id="sec-log"></div>
+              <div class="card-title-row">
+                <div class="card-title">#INFRA ACTIVITY</div>
+                <button class="reload-btn" data-reload="infra">↻</button>
+              </div>
+              <div class="disc-feed" id="feed-infra"><div class="feed-loading">Loading channel…</div></div>
+              <div class="disc-compose">
+                <textarea class="discord-input" id="infra-msg" placeholder="Post to #infra…" rows="2"></textarea>
+                <button class="disc-send-btn" data-channel="infra" data-input="infra-msg">SEND →</button>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- EMAIL ────────────────────────────────────── -->
-        <section class="dept-panel hidden" id="dept-email" aria-label="Email">
+        <!-- EMAIL ─────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-email">
           <div class="panel-header">
             <h2 class="panel-title" style="--accent:#ff6d00">✉ EMAIL</h2>
-            <span class="panel-sub">Gmail · Yahoo · Outlook</span>
+            <span class="panel-sub">All inboxes</span>
           </div>
           <div class="panel-grid">
             <div class="card card-full">
-              <div class="card-title">ASK NEXUS ABOUT EMAIL</div>
-              <p class="card-desc">NEXUS reads all connected inboxes and can summarise, action, or search emails via chat.</p>
-              <div class="email-shortcuts">
-                <button class="shortcut-btn" data-msg="Check my unread emails across all accounts">Check unread</button>
-                <button class="shortcut-btn" data-msg="What are the 5 most recent emails I've received?">Recent 5</button>
-                <button class="shortcut-btn" data-msg="Are there any emails needing urgent attention?">Urgent emails</button>
+              <div class="card-title-row">
+                <div class="card-title">INBOXES</div>
+                <button class="reload-btn" id="email-reload">↻ REFRESH</button>
               </div>
+              <div class="email-tabs" id="email-tabs"></div>
+              <div class="email-list" id="email-list"><div class="feed-loading">Click ↻ to load emails</div></div>
             </div>
             <div class="card card-full">
-              <div class="card-title">EMAIL RESPONSE LOG</div>
-              <div class="dispatch-log" id="email-log"></div>
+              <div class="card-title">ASK NEXUS ABOUT EMAIL</div>
+              <div class="email-shortcuts">
+                <button class="shortcut-btn" data-msg="Check my unread emails across all accounts">Unread emails</button>
+                <button class="shortcut-btn" data-msg="What are the 5 most recent emails?">Recent 5</button>
+                <button class="shortcut-btn" data-msg="Any urgent or important emails needing my attention?">Urgent</button>
+                <button class="shortcut-btn" data-msg="Summarise my emails from the last 24 hours">Last 24h</button>
+              </div>
             </div>
           </div>
         </section>
 
       </main>
 
-      <!-- Right sidebar — always-visible NEXUS chat -->
-      <aside class="rightsidebar" aria-label="NEXUS Chat">
+      <!-- ── RIGHT SIDEBAR ─────────────────────────────────────── -->
+      <aside class="rightsidebar">
         <div class="sidebar-top">
           <div class="sidebar-section-title">NEXUS</div>
           <div class="nexus-status-line" id="nexus-status-line">CONNECTING…</div>
         </div>
-
         <div class="chat-log" id="chat-log" role="log" aria-live="polite">
           <div class="chat-msg nexus-msg">
             <span class="msg-speaker">NEXUS</span>
             <span class="msg-text">Online. All systems nominal.</span>
           </div>
         </div>
-
         <div class="chat-input-wrap">
-          <button class="mic-btn" id="mic-btn" aria-label="Voice input" title="Hold to speak">
-            <span id="mic-icon">◎</span>
-          </button>
-          <input class="chat-input" id="chat-input" type="text"
-                 placeholder="Ask NEXUS…" autocomplete="off" spellcheck="false"
-                 aria-label="Message NEXUS">
-          <button class="send-btn" id="send-btn" aria-label="Send">▶</button>
+          <button class="mic-btn" id="mic-btn" title="Voice input"><span id="mic-icon">◎</span></button>
+          <input class="chat-input" id="chat-input" type="text" placeholder="Ask NEXUS…" autocomplete="off" spellcheck="false">
+          <button class="send-btn" id="send-btn">▶</button>
         </div>
       </aside>
 
-    </div><!-- .main -->
-  </div><!-- .app -->
+    </div>
+  </div>
 
   <script src="config.js"></script>
   <script>
-  // ── Config ─────────────────────────────────────────────────────────────────
-  const API = (window.NEXUS_CONFIG && window.NEXUS_CONFIG.localUrl) || 'http://100.71.24.81:5000';
+  // ── API base — same-origin when served from CT117, Tailscale otherwise ──────
+  const API = (() => {
+    const h = window.location.hostname;
+    if (h === '100.71.24.81' || h === 'localhost' && window.location.port === '5000') return '';
+    return (window.NEXUS_CONFIG && window.NEXUS_CONFIG.localUrl) || 'http://100.71.24.81:5000';
+  })();
 
-  // ── Clock ──────────────────────────────────────────────────────────────────
+  // ── Clock ─────────────────────────────────────────────────────────────────
   function updateClock() {
     document.getElementById('clock').textContent =
-      new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      new Date().toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
-  setInterval(updateClock, 1000);
-  updateClock();
+  setInterval(updateClock, 1000); updateClock();
 
-  // ── Dept navigation ────────────────────────────────────────────────────────
+  // ── Dept navigation ───────────────────────────────────────────────────────
+  const deptLoaded = {};
   document.querySelectorAll('.nav-btn[data-dept]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn[data-dept]').forEach(b => {
-        b.classList.remove('active'); b.setAttribute('aria-pressed','false');
-      });
+      document.querySelectorAll('.nav-btn[data-dept]').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
       document.querySelectorAll('.dept-panel').forEach(p => p.classList.add('hidden'));
-      btn.classList.add('active');
-      btn.setAttribute('aria-pressed','true');
-      const panel = document.getElementById('dept-' + btn.dataset.dept);
-      if (panel) panel.classList.remove('hidden');
+      btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
+      const dept = btn.dataset.dept;
+      document.getElementById('dept-' + dept).classList.remove('hidden');
+      // Lazy-load dept data on first visit
+      if (!deptLoaded[dept]) { loadDept(dept); deptLoaded[dept] = true; }
     });
   });
 
-  // ── API fetch ──────────────────────────────────────────────────────────────
+  // ── Fetch helper ──────────────────────────────────────────────────────────
   async function apiFetch(path) {
-    const r = await fetch(API + path, { signal: AbortSignal.timeout(8000) });
+    const r = await fetch(API + path, {signal: AbortSignal.timeout(20000)});
     return r.json();
   }
 
-  // ── Parse helpers ──────────────────────────────────────────────────────────
-  function parseCPU(t)  { const m = t.match(/CPU at ([\d.]+)%/); return m ? parseFloat(m[1]) : null; }
-  function parseRAM(t)  {
-    const m = t.match(/RAM ([\d.]+) of ([\d.]+) gigabytes used \(([\d.]+)%\)/);
-    return m ? { used:parseFloat(m[1]), total:parseFloat(m[2]), pct:parseFloat(m[3]) } : null;
-  }
-  function parseLoad(t) { const m = t.match(/Load average ([\d.]+), ([\d.]+), ([\d.]+)/); return m ? `${m[1]} / ${m[2]} / ${m[3]}` : '—'; }
-  function parseStorage(t) {
-    const pools = []; const re = /([a-z0-9_-]+): ([\d.]+)% of ([\d.]+) gigabytes/gi; let m;
-    while ((m = re.exec(t)) !== null) pools.push({ name:m[1], pct:parseFloat(m[2]), gb:parseFloat(m[3]) });
-    return pools;
-  }
+  // ── Parse helpers ─────────────────────────────────────────────────────────
+  function parseCPU(t)  { const m=t.match(/CPU at ([\d.]+)%/); return m?parseFloat(m[1]):null; }
+  function parseRAM(t)  { const m=t.match(/RAM ([\d.]+) of ([\d.]+) gigabytes used \(([\d.]+)%\)/); return m?{used:parseFloat(m[1]),total:parseFloat(m[2]),pct:parseFloat(m[3])}:null; }
+  function parseLoad(t) { const m=t.match(/Load average ([\d.]+), ([\d.]+), ([\d.]+)/); return m?`${m[1]} / ${m[2]} / ${m[3]}`:'—'; }
+  function parseStorage(t) { const p=[],re=/([a-z0-9_-]+): ([\d.]+)% of ([\d.]+) gigabytes/gi; let m; while((m=re.exec(t))!==null) p.push({name:m[1],pct:parseFloat(m[2]),gb:parseFloat(m[3])}); return p; }
   function parseContainers(t) {
-    const run  = t.match(/(\d+) containers? running/);
-    const stop = t.match(/(\d+) stopped/);
-    const items = [];
-    const runPart  = t.match(/running: (.+?)(?:\. \d+ stopped|\.$|$)/s);
-    const stopPart = t.match(/stopped: (.+?)\.?\s*$/s);
-    if (runPart)  runPart[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:true}));
-    if (stopPart) stopPart[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:false}));
-    return { running:run?parseInt(run[1]):0, stopped:stop?parseInt(stop[1]):0, items };
+    const run=t.match(/(\d+) containers? running/), stop=t.match(/(\d+) stopped/), items=[];
+    const rp=t.match(/running: (.+?)(?:\. \d+ stopped|\.$|$)/s), sp=t.match(/stopped: (.+?)\.?\s*$/s);
+    if(rp) rp[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:true}));
+    if(sp) sp[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:false}));
+    return {running:run?parseInt(run[1]):0, stopped:stop?parseInt(stop[1]):0, items};
   }
   function barColor(p) { return p>=90?'var(--red)':p>=75?'var(--amber)':'var(--cyan)'; }
+  function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  // ── Service status ─────────────────────────────────────────────────────────
+  // ── Status dots ───────────────────────────────────────────────────────────
   async function refreshStatus() {
     try {
       const d = await apiFetch('/api/status');
       ['nexus','ha','plex','n8n','pihole'].forEach(s => {
-        const up   = d[s] === 'up';
-        const chip = document.getElementById('svc-' + s);
-        const dot  = document.getElementById('sh-' + s);
-        const txt  = document.getElementById('sh-' + s + '-txt');
-        if (chip) chip.className = 'svc-chip ' + (up ? 'up' : 'down');
-        if (dot)  dot.className  = 'svc-dot2 ' + (up ? 'dot-green' : 'dot-red');
-        if (txt)  txt.textContent = up ? 'UP' : 'DOWN';
+        const up=d[s]==='up';
+        const chip=document.getElementById('svc-'+s), dot=document.getElementById('sh-'+s), txt=document.getElementById('sh-'+s+'-txt');
+        if(chip) chip.className='svc-chip '+(up?'up':'down');
+        if(dot)  dot.className='svc-dot2 '+(up?'dot-green':'dot-red');
+        if(txt)  txt.textContent=up?'UP':'DOWN';
       });
-    } catch(e) { /* silent */ }
+    } catch(e) {}
   }
 
-  // ── Health / memory ────────────────────────────────────────────────────────
+  // ── Health ────────────────────────────────────────────────────────────────
   async function refreshHealth() {
     try {
       const d = await apiFetch('/health');
-      document.getElementById('nexus-version').textContent      = d.version   || '—';
-      document.getElementById('nexus-memory-count').textContent = (d.memory   || 0) + ' msg';
-      document.getElementById('nexus-cache-pools').textContent  = (d.cache_keys ? d.cache_keys.length : 0) + ' pools';
-      document.getElementById('topbar-memory').textContent      = '◈ ' + (d.memory || 0);
+      document.getElementById('nexus-version').textContent     = d.version||'—';
+      document.getElementById('nexus-memory-count').textContent= (d.memory||0)+' msg';
+      document.getElementById('nexus-cache-pools').textContent  = (d.cache_keys?d.cache_keys.length:0)+' pools';
+      document.getElementById('topbar-memory').textContent     = '◈ '+(d.memory||0);
       document.getElementById('nexus-status-line').textContent  = 'READY';
-      document.querySelectorAll('.tool-chip').forEach(c => c.classList.add('active'));
-    } catch(e) {
-      document.getElementById('nexus-status-line').textContent = 'OFFLINE';
-    }
+      document.querySelectorAll('.tool-chip').forEach(c=>c.classList.add('active'));
+    } catch(e) { document.getElementById('nexus-status-line').textContent='OFFLINE'; }
   }
 
-  // ── Infra data ─────────────────────────────────────────────────────────────
+  // ── Infra ─────────────────────────────────────────────────────────────────
   async function refreshInfra() {
     try {
-      const [hR, cR, sR] = await Promise.all([
-        apiFetch('/api/proxmox/host'),
-        apiFetch('/api/proxmox/containers'),
-        apiFetch('/api/proxmox/storage'),
-      ]);
-      const ht = hR.data || '', ct = cR.data || '', st = sR.data || '';
-      const age = Math.max(hR.age||0, cR.age||0);
-
-      const cpu = parseCPU(ht), ram = parseRAM(ht), load = parseLoad(ht);
-
-      document.getElementById('infra-cpu').textContent   = cpu!=null ? cpu.toFixed(1)+'%' : '—';
-      document.getElementById('infra-ram').textContent   = ram ? `${ram.used}/${ram.total} GB` : '—';
-      document.getElementById('infra-load').textContent  = load;
+      const [hR,cR,sR] = await Promise.all([apiFetch('/api/proxmox/host'),apiFetch('/api/proxmox/containers'),apiFetch('/api/proxmox/storage')]);
+      const ht=hR.data||'', ct=cR.data||'', st=sR.data||'', age=Math.max(hR.age||0,cR.age||0);
+      const cpu=parseCPU(ht), ram=parseRAM(ht), load=parseLoad(ht);
+      document.getElementById('infra-cpu').textContent  = cpu!=null?cpu.toFixed(1)+'%':'—';
+      document.getElementById('infra-ram').textContent  = ram?`${ram.used}/${ram.total} GB`:'—';
+      document.getElementById('infra-load').textContent = load;
       document.getElementById('infra-updated').textContent = `cache ${age}s old`;
-
-      if (cpu!=null) { const b=document.getElementById('infra-cpu-bar'); b.style.width=cpu+'%'; b.style.background=barColor(cpu); }
-      if (ram)       { const b=document.getElementById('infra-ram-bar'); b.style.width=ram.pct+'%'; b.style.background=barColor(ram.pct); }
-
-      // Container list
-      const ctd = parseContainers(ct);
-      let ctHtml = `<div class="ct-summary">${ctd.running} running · ${ctd.stopped} stopped</div><div class="ct-grid">`;
-      ctd.items.forEach(c => {
-        ctHtml += `<div class="ct-item ${c.up?'ct-up':'ct-down'}"><span class="ct-dot"></span><span class="ct-name">${c.name}</span></div>`;
-      });
-      ctHtml += '</div>';
-      document.getElementById('infra-ct-list').innerHTML = ctHtml;
-
-      // Storage bars
-      const pools = parseStorage(st);
-      let storHtml = '';
-      pools.forEach(p => {
-        const used = (p.pct/100*p.gb).toFixed(0);
-        storHtml += `<div class="stor-row">
-          <div class="stor-name">${p.name}</div>
-          <div class="stor-bar-wrap"><div class="stor-bar" style="width:${p.pct}%;background:${barColor(p.pct)}"></div></div>
-          <div class="stor-stat">${p.pct}% · ${used}/${p.gb} GB</div>
-        </div>`;
-      });
-      document.getElementById('infra-storage').innerHTML = storHtml || '—';
-
-      // NEXUS panel snapshots
-      document.getElementById('nexus-host-snap').textContent = ht;
-      document.getElementById('nexus-ct-snap').textContent   = ct;
-    } catch(e) { console.warn('[infra]', e); }
+      if(cpu!=null){const b=document.getElementById('infra-cpu-bar');b.style.width=cpu+'%';b.style.background=barColor(cpu);}
+      if(ram){const b=document.getElementById('infra-ram-bar');b.style.width=ram.pct+'%';b.style.background=barColor(ram.pct);}
+      const ctd=parseContainers(ct);
+      let ctHtml=`<div class="ct-summary">${ctd.running} running · ${ctd.stopped} stopped</div><div class="ct-grid">`;
+      ctd.items.forEach(c=>{ctHtml+=`<div class="ct-item ${c.up?'ct-up':'ct-down'}"><span class="ct-dot"></span><span class="ct-name">${esc(c.name)}</span></div>`;});
+      ctHtml+='</div>';
+      document.getElementById('infra-ct-list').innerHTML=ctHtml;
+      const pools=parseStorage(st); let storHtml='';
+      pools.forEach(p=>{const used=(p.pct/100*p.gb).toFixed(0);storHtml+=`<div class="stor-row"><div class="stor-name">${p.name}</div><div class="stor-bar-wrap"><div class="stor-bar" style="width:${p.pct}%;background:${barColor(p.pct)}"></div></div><div class="stor-stat">${p.pct}% · ${used}/${p.gb} GB</div></div>`;});
+      document.getElementById('infra-storage').innerHTML=storHtml||'—';
+      document.getElementById('nexus-host-snap').textContent=ht;
+      document.getElementById('nexus-ct-snap').textContent=ct;
+    } catch(e){console.warn('[infra]',e);}
   }
 
-  // ── Discord send ───────────────────────────────────────────────────────────
+  // ── Discord feed render ───────────────────────────────────────────────────
+  async function loadDiscordFeed(channel, elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = '<div class="feed-loading">Loading…</div>';
+    try {
+      const d = await apiFetch('/api/discord/channel/' + channel);
+      if (d.error) { el.innerHTML = `<div class="feed-error">${esc(d.error)}</div>`; return; }
+      const msgs = d.messages || [];
+      if (!msgs.length) { el.innerHTML = '<div class="feed-empty">No messages yet.</div>'; return; }
+      el.innerHTML = msgs.map(m => `
+        <div class="disc-msg">
+          <span class="disc-author">${esc(m.author)}</span>
+          <span class="disc-ts">${esc(m.ts)}</span>
+          <div class="disc-body">${esc(m.content)}</div>
+        </div>`).join('');
+    } catch(e) { el.innerHTML = `<div class="feed-error">Failed: ${esc(e.message)}</div>`; }
+  }
+
+  // ── Domain status ─────────────────────────────────────────────────────────
+  async function loadDomains() {
+    try {
+      const d = await apiFetch('/api/domains/status');
+      const items = document.querySelectorAll('#domain-list .domain-item');
+      const domains = ['call-on.dad','call-on.mom','call-on.media','call-on.shop'];
+      domains.forEach((dom, i) => {
+        if (!items[i]) return;
+        const info = d[dom] || {};
+        const up = info.status === 'up';
+        items[i].querySelector('.domain-dot').className = 'domain-dot ' + (up ? 'green' : 'red');
+        items[i].querySelector('.domain-status').textContent = up ? (info.code ? `HTTP ${info.code}` : 'UP') : 'DOWN';
+        items[i].querySelector('.domain-status').style.color = up ? 'var(--green)' : 'var(--red)';
+      });
+    } catch(e) {}
+  }
+
+  // ── Community DB stats ────────────────────────────────────────────────────
+  async function loadCommunityStats() {
+    const el = document.getElementById('db-stats');
+    if (!el) return;
+    try {
+      const d = await apiFetch('/api/community/stats');
+      if (d.raw) {
+        el.innerHTML = `<pre class="snap-text">${esc(d.raw)}</pre>`;
+        return;
+      }
+      let html = '';
+      Object.entries(d).forEach(([site, tables]) => {
+        html += `<div class="db-site"><div class="db-site-name">${esc(site).toUpperCase()}</div>`;
+        if (tables.error) {
+          html += `<div class="feed-error">${esc(tables.error)}</div>`;
+        } else {
+          html += '<div class="db-table-grid">';
+          Object.entries(tables).sort((a,b)=>b[1]-a[1]).forEach(([t,n]) => {
+            html += `<div class="db-table-row"><span class="db-table-name">${esc(t)}</span><span class="db-table-count">${n.toLocaleString()}</span></div>`;
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      el.innerHTML = html || '<div class="feed-empty">No data.</div>';
+    } catch(e) { el.innerHTML = `<div class="feed-error">DB unavailable: ${esc(e.message)}</div>`; }
+  }
+
+  // ── Email inbox ───────────────────────────────────────────────────────────
+  let emailData = null;
+  let activeEmailAccount = 0;
+
+  async function loadEmailInbox() {
+    const listEl = document.getElementById('email-list');
+    const tabsEl = document.getElementById('email-tabs');
+    listEl.innerHTML = '<div class="feed-loading">Fetching emails…</div>';
+    tabsEl.innerHTML = '';
+    try {
+      const d = await apiFetch('/api/email/inbox');
+      if (d.error) { listEl.innerHTML = `<div class="feed-error">${esc(d.error)}</div>`; return; }
+      emailData = d.accounts || [];
+      // Build tabs
+      emailData.forEach((acc, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'email-tab' + (i===0?' active':'');
+        btn.textContent = acc.account;
+        btn.dataset.idx = i;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.email-tab').forEach(t=>t.classList.remove('active'));
+          btn.classList.add('active');
+          activeEmailAccount = i;
+          renderEmailList(i);
+        });
+        tabsEl.appendChild(btn);
+      });
+      renderEmailList(0);
+    } catch(e) { listEl.innerHTML = `<div class="feed-error">Failed: ${esc(e.message)}</div>`; }
+  }
+
+  function renderEmailList(idx) {
+    const listEl = document.getElementById('email-list');
+    const acc = emailData && emailData[idx];
+    if (!acc) return;
+    if (acc.error) { listEl.innerHTML = `<div class="feed-error">⚠ ${esc(acc.error)}</div>`; return; }
+    if (!acc.messages.length) { listEl.innerHTML = '<div class="feed-empty">No messages found.</div>'; return; }
+    listEl.innerHTML = acc.messages.map(m => `
+      <div class="email-row">
+        <div class="email-row-top">
+          <span class="email-from">${esc(m.from)}</span>
+          <span class="email-date">${esc(m.date)}</span>
+        </div>
+        <div class="email-subject">${esc(m.subject)}</div>
+        ${m.preview ? `<div class="email-preview">${esc(m.preview)}</div>` : ''}
+      </div>`).join('');
+  }
+
+  document.getElementById('email-reload').addEventListener('click', loadEmailInbox);
+
+  // ── Reload buttons on feeds ───────────────────────────────────────────────
+  document.querySelectorAll('.reload-btn[data-reload]').forEach(btn => {
+    btn.addEventListener('click', () => loadDiscordFeed(btn.dataset.reload, 'feed-' + btn.dataset.reload));
+  });
+
+  // ── Discord send ──────────────────────────────────────────────────────────
   document.querySelectorAll('.disc-send-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const channel = btn.dataset.channel;
       const inp     = document.getElementById(btn.dataset.input);
       const msg     = inp ? inp.value.trim() : '';
       if (!msg) return;
-
-      btn.disabled = true;
-      const origText = btn.textContent;
-      btn.textContent = '…SENDING';
-
+      btn.disabled = true; btn.textContent = '…';
       try {
-        const r = await fetch(API + '/api/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: `Post this to the Discord #${channel} channel: ${msg}`, tts: false })
+        await fetch(API + '/api/ask', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({message:`Post this to the Discord #${channel} channel: ${msg}`, tts:false})
         });
-        const d = await r.json();
-        const panel = btn.closest('.dept-panel');
-        const log   = panel && panel.querySelector('.dispatch-log');
-        if (log) {
-          const e = document.createElement('div');
-          e.className = 'log-entry';
-          e.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-            <span class="log-channel">#${channel}</span>
-            <span class="log-msg">${(d.reply||'Sent.').replace(/</g,'&lt;')}</span>`;
-          log.prepend(e);
-        }
         inp.value = '';
-      } catch(e) { console.error('[discord]', e); }
-
-      btn.disabled    = false;
-      btn.textContent = origText;
+        // Reload feed after send
+        setTimeout(() => loadDiscordFeed(channel, 'feed-' + channel), 1500);
+      } catch(e) { console.error(e); }
+      btn.disabled = false; btn.textContent = 'SEND →';
     });
   });
 
-  // ── Email shortcut buttons ─────────────────────────────────────────────────
+  // ── Email shortcuts ───────────────────────────────────────────────────────
   document.querySelectorAll('.shortcut-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('chat-input').value = btn.dataset.msg;
@@ -523,101 +564,77 @@
     });
   });
 
-  // ── Chat ───────────────────────────────────────────────────────────────────
+  // ── Dept lazy load ────────────────────────────────────────────────────────
+  function loadDept(dept) {
+    switch(dept) {
+      case 'infra':     refreshInfra(); break;
+      case 'marketing': loadDiscordFeed('marketing','feed-marketing'); loadDiscordFeed('seo','feed-seo'); loadDiscordFeed('content','feed-content'); break;
+      case 'business':  loadDomains(); loadDiscordFeed('business','feed-business'); loadDiscordFeed('manager','feed-manager'); break;
+      case 'community': loadCommunityStats(); loadDiscordFeed('community','feed-community'); loadDiscordFeed('general','feed-general'); break;
+      case 'security':  loadDiscordFeed('security','feed-security'); loadDiscordFeed('infra','feed-infra'); break;
+    }
+  }
+
+  // ── NEXUS Chat ────────────────────────────────────────────────────────────
   const chatLog    = document.getElementById('chat-log');
   const chatInput  = document.getElementById('chat-input');
   const statusLine = document.getElementById('nexus-status-line');
 
   function appendMsg(role, text) {
     const d = document.createElement('div');
-    d.className = 'chat-msg ' + (role==='nexus' ? 'nexus-msg' : 'user-msg');
-    d.innerHTML = `<span class="msg-speaker">${role==='nexus'?'NEXUS':'YOU'}</span>
-                   <span class="msg-text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
-    chatLog.appendChild(d);
-    chatLog.scrollTop = chatLog.scrollHeight;
+    d.className = 'chat-msg ' + (role==='nexus'?'nexus-msg':'user-msg');
+    d.innerHTML = `<span class="msg-speaker">${role==='nexus'?'NEXUS':'YOU'}</span><span class="msg-text">${esc(text)}</span>`;
+    chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
   }
 
   async function sendMessage(text) {
     if (!text.trim()) return;
-    appendMsg('you', text);
-    chatInput.value = '';
-    statusLine.textContent = 'THINKING…';
+    appendMsg('you', text); chatInput.value=''; statusLine.textContent='THINKING…';
     try {
-      const r = await fetch(API + '/api/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, tts: true })
-      });
+      const r = await fetch(API+'/api/ask', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,tts:true})});
       const d = await r.json();
-      appendMsg('nexus', d.reply || '…');
+      appendMsg('nexus', d.reply||'…');
       statusLine.textContent = 'READY';
-      if (d.audio) { try { new Audio('data:audio/mpeg;base64,'+d.audio).play(); } catch(e){} }
-      // Bump memory count
-      const mem = document.getElementById('topbar-memory');
-      const n = parseInt(mem.textContent.replace('◈ ',''))||0;
-      mem.textContent = '◈ ' + (n+2);
-      // Email log if visible
-      const ep = document.getElementById('dept-email');
-      if (ep && !ep.classList.contains('hidden')) {
-        const log = document.getElementById('email-log');
-        const e = document.createElement('div'); e.className='log-entry';
-        e.innerHTML=`<span class="log-time">${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
-          <span class="log-msg">${(d.reply||'').replace(/</g,'&lt;')}</span>`;
-        log.prepend(e);
-      }
-    } catch(e) {
-      appendMsg('nexus', 'Connection error. Check Tailscale.');
-      statusLine.textContent = 'ERROR';
-    }
+      const mem=document.getElementById('topbar-memory'), n=parseInt(mem.textContent.replace('◈ ','')||0);
+      mem.textContent='◈ '+(n+2);
+      if(d.audio){try{new Audio('data:audio/mpeg;base64,'+d.audio).play();}catch(e){}}
+    } catch(e) { appendMsg('nexus','Connection error. Check Tailscale.'); statusLine.textContent='ERROR'; }
   }
 
-  document.getElementById('send-btn').addEventListener('click', () => sendMessage(chatInput.value));
-  chatInput.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(chatInput.value); }});
+  document.getElementById('send-btn').addEventListener('click', ()=>sendMessage(chatInput.value));
+  chatInput.addEventListener('keydown', e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(chatInput.value);}});
 
-  // ── Voice input ────────────────────────────────────────────────────────────
-  let mediaRec = null, recording = false;
-  const micBtn = document.getElementById('mic-btn');
-  const micIcon = document.getElementById('mic-icon');
-
-  micBtn.addEventListener('click', async () => {
-    if (recording) {
-      mediaRec && mediaRec.stop();
-      recording = false;
-      micBtn.classList.remove('recording');
-      micIcon.textContent = '◎';
-      statusLine.textContent = 'PROCESSING…';
-      return;
-    }
+  // ── Voice ─────────────────────────────────────────────────────────────────
+  let mediaRec=null, recording=false;
+  const micBtn=document.getElementById('mic-btn'), micIcon=document.getElementById('mic-icon');
+  micBtn.addEventListener('click', async()=>{
+    if(recording){mediaRec&&mediaRec.stop();recording=false;micBtn.classList.remove('recording');micIcon.textContent='◎';return;}
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const chunks = [];
-      mediaRec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRec.ondataavailable = e => e.data.size && chunks.push(e.data);
-      mediaRec.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const fd = new FormData(); fd.append('audio', blob, 'voice.webm');
-        try {
-          const tr = await fetch(API + '/api/transcribe', { method: 'POST', body: fd });
-          const td = await tr.json();
-          if (td.transcript) sendMessage(td.transcript);
-          else statusLine.textContent = 'NO SPEECH';
-        } catch(e) { statusLine.textContent = 'TRANSCRIBE ERROR'; }
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true}), chunks=[];
+      mediaRec=new MediaRecorder(stream,{mimeType:'audio/webm'});
+      mediaRec.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+      mediaRec.onstop=async()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        const fd=new FormData(); fd.append('audio',new Blob(chunks,{type:'audio/webm'}),'voice.webm');
+        try{const tr=await fetch(API+'/api/transcribe',{method:'POST',body:fd}); const td=await tr.json(); if(td.transcript)sendMessage(td.transcript); else statusLine.textContent='NO SPEECH';}
+        catch(e){statusLine.textContent='TRANSCRIBE ERROR';}
       };
-      mediaRec.start(); recording = true;
-      micBtn.classList.add('recording');
-      micIcon.textContent = '■';
-      statusLine.textContent = 'LISTENING…';
-    } catch(e) { statusLine.textContent = 'MIC BLOCKED'; }
+      mediaRec.start(); recording=true; micBtn.classList.add('recording'); micIcon.textContent='■'; statusLine.textContent='LISTENING…';
+    } catch(e){statusLine.textContent='MIC BLOCKED';}
   });
 
-  // ── Refresh all ────────────────────────────────────────────────────────────
-  document.getElementById('refresh-btn').addEventListener('click', refreshAll);
-  async function refreshAll() {
-    await Promise.all([refreshStatus(), refreshHealth(), refreshInfra()]);
-  }
+  // ── Refresh ───────────────────────────────────────────────────────────────
+  document.getElementById('refresh-btn').addEventListener('click', ()=>{
+    refreshStatus(); refreshHealth(); refreshInfra();
+    const active=document.querySelector('.nav-btn.active[data-dept]');
+    if(active){deptLoaded[active.dataset.dept]=false; loadDept(active.dataset.dept);}
+  });
+
+  async function refreshAll() { await Promise.all([refreshStatus(), refreshHealth(), refreshInfra()]); }
   refreshAll();
   setInterval(refreshAll, 30000);
+  // Pre-load nexus AI dept
+  deptLoaded['nexus'] = true;
   </script>
 </body>
 </html>
