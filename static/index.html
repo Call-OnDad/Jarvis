@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07070F">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>NEXUS</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+
+  <div class="stars" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div class="app">
+
+    <!-- ── TOP BAR ──────────────────────────────────────────────── -->
+    <header class="topbar">
+      <div class="topbar-logo">N<em>E</em>XUS</div>
+
+      <div class="topbar-services">
+        <span class="svc-chip" id="svc-nexus" title="NEXUS API">
+          <span class="svc-dot"></span>NEXUS
+        </span>
+        <span class="svc-chip" id="svc-ha" title="Home Assistant">
+          <span class="svc-dot"></span>HA
+        </span>
+        <span class="svc-chip" id="svc-plex" title="Plex Media">
+          <span class="svc-dot"></span>PLEX
+        </span>
+        <span class="svc-chip" id="svc-n8n" title="n8n Automation">
+          <span class="svc-dot"></span>N8N
+        </span>
+        <span class="svc-chip" id="svc-pihole" title="Pi-hole DNS">
+          <span class="svc-dot"></span>DNS
+        </span>
+      </div>
+
+      <div class="topbar-right">
+        <span class="topbar-memory" id="topbar-memory" title="Conversation messages in memory">◈ 0</span>
+        <span class="topbar-clock" id="clock">--:--</span>
+      </div>
+    </header>
+
+    <!-- ── MAIN LAYOUT ──────────────────────────────────────────── -->
+    <div class="main">
+
+      <!-- Left nav -->
+      <nav class="leftnav" aria-label="Departments">
+        <button class="nav-btn active" data-dept="nexus" aria-pressed="true">
+          <span class="nav-icon">◈</span>
+          <span class="nav-label">NEXUS AI</span>
+        </button>
+        <button class="nav-btn" data-dept="infra" aria-pressed="false">
+          <span class="nav-icon">⬡</span>
+          <span class="nav-label">DEV / INFRA</span>
+        </button>
+        <button class="nav-btn" data-dept="marketing" aria-pressed="false">
+          <span class="nav-icon">◉</span>
+          <span class="nav-label">MARKETING</span>
+        </button>
+        <button class="nav-btn" data-dept="business" aria-pressed="false">
+          <span class="nav-icon">◆</span>
+          <span class="nav-label">BUSINESS</span>
+        </button>
+        <button class="nav-btn" data-dept="community" aria-pressed="false">
+          <span class="nav-icon">◎</span>
+          <span class="nav-label">COMMUNITY</span>
+        </button>
+        <button class="nav-btn" data-dept="security" aria-pressed="false">
+          <span class="nav-icon">⬣</span>
+          <span class="nav-label">SECURITY</span>
+        </button>
+        <button class="nav-btn" data-dept="email" aria-pressed="false">
+          <span class="nav-icon">✉</span>
+          <span class="nav-label">EMAIL</span>
+        </button>
+        <div class="nav-spacer"></div>
+        <button class="nav-btn nav-btn-sm" id="refresh-btn" title="Refresh all data">
+          <span class="nav-icon">↻</span>
+          <span class="nav-label">REFRESH</span>
+        </button>
+      </nav>
+
+      <!-- Center content panel -->
+      <main class="content" role="main">
+
+        <!-- NEXUS AI ─────────────────────────────────── -->
+        <section class="dept-panel" id="dept-nexus" aria-label="NEXUS AI">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--cyan)">◈ NEXUS AI</h2>
+            <span class="panel-sub">Intelligence · Automation · Control</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-wide">
+              <div class="card-title">SYSTEM STATUS</div>
+              <div class="stat-row">
+                <div class="stat-item">
+                  <div class="stat-value" id="nexus-version">—</div>
+                  <div class="stat-label">VERSION</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value" id="nexus-memory-count">—</div>
+                  <div class="stat-label">MEMORY</div>
+                </div>
+                <div class="stat-item">
+                  <div class="stat-value" id="nexus-cache-pools">—</div>
+                  <div class="stat-label">CACHE POOLS</div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-title">LIVE TOOLS</div>
+              <div class="tool-grid">
+                <div class="tool-chip" data-tool="Proxmox">PROXMOX</div>
+                <div class="tool-chip" data-tool="HA">HA</div>
+                <div class="tool-chip" data-tool="Search">SEARCH</div>
+                <div class="tool-chip" data-tool="Email">EMAIL</div>
+                <div class="tool-chip" data-tool="Discord">DISCORD</div>
+                <div class="tool-chip" data-tool="SSH">SSH</div>
+              </div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">HOST SNAPSHOT</div>
+              <div class="snap-text" id="nexus-host-snap">Loading…</div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">CONTAINERS</div>
+              <div class="snap-text" id="nexus-ct-snap">Loading…</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- DEV / INFRA ──────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-infra" aria-label="Dev and Infra">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--blue)">⬡ DEV / INFRA</h2>
+            <span class="panel-sub" id="infra-updated">—</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card">
+              <div class="card-title">CPU</div>
+              <div class="big-stat" id="infra-cpu">—</div>
+              <div class="bar-wrap"><div class="bar" id="infra-cpu-bar"></div></div>
+            </div>
+            <div class="card">
+              <div class="card-title">RAM</div>
+              <div class="big-stat" id="infra-ram">—</div>
+              <div class="bar-wrap"><div class="bar" id="infra-ram-bar"></div></div>
+            </div>
+            <div class="card">
+              <div class="card-title">LOAD AVG</div>
+              <div class="big-stat sm" id="infra-load">—</div>
+              <div class="stat-label">1m / 5m / 15m</div>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">CONTAINERS</div>
+              <div class="ct-list" id="infra-ct-list">Loading…</div>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">STORAGE</div>
+              <div class="storage-list" id="infra-storage">Loading…</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MARKETING ────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-marketing" aria-label="Marketing">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--amber)">◉ MARKETING</h2>
+            <span class="panel-sub">Discord dept channels</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-wide">
+              <div class="card-title">POST TO #MARKETING</div>
+              <textarea class="discord-input" id="mkt-msg" placeholder="Marketing update, campaign brief, ad copy request…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="marketing" data-input="mkt-msg">→ SEND TO #MARKETING</button>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #SEO</div>
+              <textarea class="discord-input" id="seo-msg" placeholder="SEO task, keyword research request, content brief…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="seo" data-input="seo-msg">→ SEND TO #SEO</button>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #CONTENT</div>
+              <textarea class="discord-input" id="content-msg" placeholder="Content request, blog post brief, copy task…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="content" data-input="content-msg">→ SEND TO #CONTENT</button>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">DISPATCH LOG</div>
+              <div class="dispatch-log" id="mkt-log"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- BUSINESS ─────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-business" aria-label="Business">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--violet)">◆ BUSINESS</h2>
+            <span class="panel-sub">Call-On Ltd operations</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card">
+              <div class="card-title">DOMAINS</div>
+              <div class="domain-list">
+                <div class="domain-item"><span class="domain-dot green"></span>call-on.dad</div>
+                <div class="domain-item"><span class="domain-dot green"></span>call-on.mom</div>
+                <div class="domain-item"><span class="domain-dot green"></span>call-on.media</div>
+                <div class="domain-item"><span class="domain-dot green"></span>call-on.shop</div>
+              </div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #BUSINESS</div>
+              <textarea class="discord-input" id="biz-msg" placeholder="Business update, strategy task, finance query…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="business" data-input="biz-msg">→ SEND TO #BUSINESS</button>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #MANAGER</div>
+              <textarea class="discord-input" id="mgr-msg" placeholder="Cross-dept task, escalation, high-priority item…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="manager" data-input="mgr-msg">→ SEND TO #MANAGER</button>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">DISPATCH LOG</div>
+              <div class="dispatch-log" id="biz-log"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- COMMUNITY ────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-community" aria-label="Community">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--green)">◎ COMMUNITY</h2>
+            <span class="panel-sub">call-on.dad · call-on.mom · engagement</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-wide">
+              <div class="card-title">POST TO #COMMUNITY</div>
+              <textarea class="discord-input" id="cmty-msg" placeholder="Community update, engagement task, moderation note…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="community" data-input="cmty-msg">→ SEND TO #COMMUNITY</button>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #GENERAL</div>
+              <textarea class="discord-input" id="gen-msg" placeholder="General announcement or update…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="general" data-input="gen-msg">→ SEND TO #GENERAL</button>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">DISPATCH LOG</div>
+              <div class="dispatch-log" id="cmty-log"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECURITY ─────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-security" aria-label="Security">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:var(--red)">⬣ SECURITY</h2>
+            <span class="panel-sub">CrowdSec · Caddy · Tailscale</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-full">
+              <div class="card-title">SERVICE HEALTH</div>
+              <div class="svc-health-grid">
+                <div class="svc-row"><span class="svc-dot2" id="sh-nexus"></span><span>NEXUS API</span><span class="svc-status-txt" id="sh-nexus-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-ha"></span><span>Home Assistant</span><span class="svc-status-txt" id="sh-ha-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-plex"></span><span>Plex Media</span><span class="svc-status-txt" id="sh-plex-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-n8n"></span><span>n8n Automation</span><span class="svc-status-txt" id="sh-n8n-txt">—</span></div>
+                <div class="svc-row"><span class="svc-dot2" id="sh-pihole"></span><span>Pi-hole DNS</span><span class="svc-status-txt" id="sh-pihole-txt">—</span></div>
+              </div>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #SECURITY</div>
+              <textarea class="discord-input" id="sec-msg" placeholder="Security alert, audit task, vulnerability report…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="security" data-input="sec-msg">→ SEND TO #SECURITY</button>
+            </div>
+            <div class="card card-wide">
+              <div class="card-title">POST TO #INFRA</div>
+              <textarea class="discord-input" id="infra-msg" placeholder="Infrastructure task, server change, deployment…" rows="4"></textarea>
+              <button class="disc-send-btn" data-channel="infra" data-input="infra-msg">→ SEND TO #INFRA</button>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">DISPATCH LOG</div>
+              <div class="dispatch-log" id="sec-log"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- EMAIL ────────────────────────────────────── -->
+        <section class="dept-panel hidden" id="dept-email" aria-label="Email">
+          <div class="panel-header">
+            <h2 class="panel-title" style="--accent:#ff6d00">✉ EMAIL</h2>
+            <span class="panel-sub">Gmail · Yahoo · Outlook</span>
+          </div>
+          <div class="panel-grid">
+            <div class="card card-full">
+              <div class="card-title">ASK NEXUS ABOUT EMAIL</div>
+              <p class="card-desc">NEXUS reads all connected inboxes and can summarise, action, or search emails via chat.</p>
+              <div class="email-shortcuts">
+                <button class="shortcut-btn" data-msg="Check my unread emails across all accounts">Check unread</button>
+                <button class="shortcut-btn" data-msg="What are the 5 most recent emails I've received?">Recent 5</button>
+                <button class="shortcut-btn" data-msg="Are there any emails needing urgent attention?">Urgent emails</button>
+              </div>
+            </div>
+            <div class="card card-full">
+              <div class="card-title">EMAIL RESPONSE LOG</div>
+              <div class="dispatch-log" id="email-log"></div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <!-- Right sidebar — always-visible NEXUS chat -->
+      <aside class="rightsidebar" aria-label="NEXUS Chat">
+        <div class="sidebar-top">
+          <div class="sidebar-section-title">NEXUS</div>
+          <div class="nexus-status-line" id="nexus-status-line">CONNECTING…</div>
+        </div>
+
+        <div class="chat-log" id="chat-log" role="log" aria-live="polite">
+          <div class="chat-msg nexus-msg">
+            <span class="msg-speaker">NEXUS</span>
+            <span class="msg-text">Online. All systems nominal.</span>
+          </div>
+        </div>
+
+        <div class="chat-input-wrap">
+          <button class="mic-btn" id="mic-btn" aria-label="Voice input" title="Hold to speak">
+            <span id="mic-icon">◎</span>
+          </button>
+          <input class="chat-input" id="chat-input" type="text"
+                 placeholder="Ask NEXUS…" autocomplete="off" spellcheck="false"
+                 aria-label="Message NEXUS">
+          <button class="send-btn" id="send-btn" aria-label="Send">▶</button>
+        </div>
+      </aside>
+
+    </div><!-- .main -->
+  </div><!-- .app -->
+
+  <script src="config.js"></script>
+  <script>
+  // ── Config ─────────────────────────────────────────────────────────────────
+  const API = (window.NEXUS_CONFIG && window.NEXUS_CONFIG.localUrl) || 'http://100.71.24.81:5000';
+
+  // ── Clock ──────────────────────────────────────────────────────────────────
+  function updateClock() {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ── Dept navigation ────────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-btn[data-dept]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn[data-dept]').forEach(b => {
+        b.classList.remove('active'); b.setAttribute('aria-pressed','false');
+      });
+      document.querySelectorAll('.dept-panel').forEach(p => p.classList.add('hidden'));
+      btn.classList.add('active');
+      btn.setAttribute('aria-pressed','true');
+      const panel = document.getElementById('dept-' + btn.dataset.dept);
+      if (panel) panel.classList.remove('hidden');
+    });
+  });
+
+  // ── API fetch ──────────────────────────────────────────────────────────────
+  async function apiFetch(path) {
+    const r = await fetch(API + path, { signal: AbortSignal.timeout(8000) });
+    return r.json();
+  }
+
+  // ── Parse helpers ──────────────────────────────────────────────────────────
+  function parseCPU(t)  { const m = t.match(/CPU at ([\d.]+)%/); return m ? parseFloat(m[1]) : null; }
+  function parseRAM(t)  {
+    const m = t.match(/RAM ([\d.]+) of ([\d.]+) gigabytes used \(([\d.]+)%\)/);
+    return m ? { used:parseFloat(m[1]), total:parseFloat(m[2]), pct:parseFloat(m[3]) } : null;
+  }
+  function parseLoad(t) { const m = t.match(/Load average ([\d.]+), ([\d.]+), ([\d.]+)/); return m ? `${m[1]} / ${m[2]} / ${m[3]}` : '—'; }
+  function parseStorage(t) {
+    const pools = []; const re = /([a-z0-9_-]+): ([\d.]+)% of ([\d.]+) gigabytes/gi; let m;
+    while ((m = re.exec(t)) !== null) pools.push({ name:m[1], pct:parseFloat(m[2]), gb:parseFloat(m[3]) });
+    return pools;
+  }
+  function parseContainers(t) {
+    const run  = t.match(/(\d+) containers? running/);
+    const stop = t.match(/(\d+) stopped/);
+    const items = [];
+    const runPart  = t.match(/running: (.+?)(?:\. \d+ stopped|\.$|$)/s);
+    const stopPart = t.match(/stopped: (.+?)\.?\s*$/s);
+    if (runPart)  runPart[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:true}));
+    if (stopPart) stopPart[1].split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>items.push({name:s,up:false}));
+    return { running:run?parseInt(run[1]):0, stopped:stop?parseInt(stop[1]):0, items };
+  }
+  function barColor(p) { return p>=90?'var(--red)':p>=75?'var(--amber)':'var(--cyan)'; }
+
+  // ── Service status ─────────────────────────────────────────────────────────
+  async function refreshStatus() {
+    try {
+      const d = await apiFetch('/api/status');
+      ['nexus','ha','plex','n8n','pihole'].forEach(s => {
+        const up   = d[s] === 'up';
+        const chip = document.getElementById('svc-' + s);
+        const dot  = document.getElementById('sh-' + s);
+        const txt  = document.getElementById('sh-' + s + '-txt');
+        if (chip) chip.className = 'svc-chip ' + (up ? 'up' : 'down');
+        if (dot)  dot.className  = 'svc-dot2 ' + (up ? 'dot-green' : 'dot-red');
+        if (txt)  txt.textContent = up ? 'UP' : 'DOWN';
+      });
+    } catch(e) { /* silent */ }
+  }
+
+  // ── Health / memory ────────────────────────────────────────────────────────
+  async function refreshHealth() {
+    try {
+      const d = await apiFetch('/health');
+      document.getElementById('nexus-version').textContent      = d.version   || '—';
+      document.getElementById('nexus-memory-count').textContent = (d.memory   || 0) + ' msg';
+      document.getElementById('nexus-cache-pools').textContent  = (d.cache_keys ? d.cache_keys.length : 0) + ' pools';
+      document.getElementById('topbar-memory').textContent      = '◈ ' + (d.memory || 0);
+      document.getElementById('nexus-status-line').textContent  = 'READY';
+      document.querySelectorAll('.tool-chip').forEach(c => c.classList.add('active'));
+    } catch(e) {
+      document.getElementById('nexus-status-line').textContent = 'OFFLINE';
+    }
+  }
+
+  // ── Infra data ─────────────────────────────────────────────────────────────
+  async function refreshInfra() {
+    try {
+      const [hR, cR, sR] = await Promise.all([
+        apiFetch('/api/proxmox/host'),
+        apiFetch('/api/proxmox/containers'),
+        apiFetch('/api/proxmox/storage'),
+      ]);
+      const ht = hR.data || '', ct = cR.data || '', st = sR.data || '';
+      const age = Math.max(hR.age||0, cR.age||0);
+
+      const cpu = parseCPU(ht), ram = parseRAM(ht), load = parseLoad(ht);
+
+      document.getElementById('infra-cpu').textContent   = cpu!=null ? cpu.toFixed(1)+'%' : '—';
+      document.getElementById('infra-ram').textContent   = ram ? `${ram.used}/${ram.total} GB` : '—';
+      document.getElementById('infra-load').textContent  = load;
+      document.getElementById('infra-updated').textContent = `cache ${age}s old`;
+
+      if (cpu!=null) { const b=document.getElementById('infra-cpu-bar'); b.style.width=cpu+'%'; b.style.background=barColor(cpu); }
+      if (ram)       { const b=document.getElementById('infra-ram-bar'); b.style.width=ram.pct+'%'; b.style.background=barColor(ram.pct); }
+
+      // Container list
+      const ctd = parseContainers(ct);
+      let ctHtml = `<div class="ct-summary">${ctd.running} running · ${ctd.stopped} stopped</div><div class="ct-grid">`;
+      ctd.items.forEach(c => {
+        ctHtml += `<div class="ct-item ${c.up?'ct-up':'ct-down'}"><span class="ct-dot"></span><span class="ct-name">${c.name}</span></div>`;
+      });
+      ctHtml += '</div>';
+      document.getElementById('infra-ct-list').innerHTML = ctHtml;
+
+      // Storage bars
+      const pools = parseStorage(st);
+      let storHtml = '';
+      pools.forEach(p => {
+        const used = (p.pct/100*p.gb).toFixed(0);
+        storHtml += `<div class="stor-row">
+          <div class="stor-name">${p.name}</div>
+          <div class="stor-bar-wrap"><div class="stor-bar" style="width:${p.pct}%;background:${barColor(p.pct)}"></div></div>
+          <div class="stor-stat">${p.pct}% · ${used}/${p.gb} GB</div>
+        </div>`;
+      });
+      document.getElementById('infra-storage').innerHTML = storHtml || '—';
+
+      // NEXUS panel snapshots
+      document.getElementById('nexus-host-snap').textContent = ht;
+      document.getElementById('nexus-ct-snap').textContent   = ct;
+    } catch(e) { console.warn('[infra]', e); }
+  }
+
+  // ── Discord send ───────────────────────────────────────────────────────────
+  document.querySelectorAll('.disc-send-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const channel = btn.dataset.channel;
+      const inp     = document.getElementById(btn.dataset.input);
+      const msg     = inp ? inp.value.trim() : '';
+      if (!msg) return;
+
+      btn.disabled = true;
+      const origText = btn.textContent;
+      btn.textContent = '…SENDING';
+
+      try {
+        const r = await fetch(API + '/api/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: `Post this to the Discord #${channel} channel: ${msg}`, tts: false })
+        });
+        const d = await r.json();
+        const panel = btn.closest('.dept-panel');
+        const log   = panel && panel.querySelector('.dispatch-log');
+        if (log) {
+          const e = document.createElement('div');
+          e.className = 'log-entry';
+          e.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+            <span class="log-channel">#${channel}</span>
+            <span class="log-msg">${(d.reply||'Sent.').replace(/</g,'&lt;')}</span>`;
+          log.prepend(e);
+        }
+        inp.value = '';
+      } catch(e) { console.error('[discord]', e); }
+
+      btn.disabled    = false;
+      btn.textContent = origText;
+    });
+  });
+
+  // ── Email shortcut buttons ─────────────────────────────────────────────────
+  document.querySelectorAll('.shortcut-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('chat-input').value = btn.dataset.msg;
+      document.getElementById('chat-input').focus();
+    });
+  });
+
+  // ── Chat ───────────────────────────────────────────────────────────────────
+  const chatLog    = document.getElementById('chat-log');
+  const chatInput  = document.getElementById('chat-input');
+  const statusLine = document.getElementById('nexus-status-line');
+
+  function appendMsg(role, text) {
+    const d = document.createElement('div');
+    d.className = 'chat-msg ' + (role==='nexus' ? 'nexus-msg' : 'user-msg');
+    d.innerHTML = `<span class="msg-speaker">${role==='nexus'?'NEXUS':'YOU'}</span>
+                   <span class="msg-text">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
+    chatLog.appendChild(d);
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    appendMsg('you', text);
+    chatInput.value = '';
+    statusLine.textContent = 'THINKING…';
+    try {
+      const r = await fetch(API + '/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, tts: true })
+      });
+      const d = await r.json();
+      appendMsg('nexus', d.reply || '…');
+      statusLine.textContent = 'READY';
+      if (d.audio) { try { new Audio('data:audio/mpeg;base64,'+d.audio).play(); } catch(e){} }
+      // Bump memory count
+      const mem = document.getElementById('topbar-memory');
+      const n = parseInt(mem.textContent.replace('◈ ',''))||0;
+      mem.textContent = '◈ ' + (n+2);
+      // Email log if visible
+      const ep = document.getElementById('dept-email');
+      if (ep && !ep.classList.contains('hidden')) {
+        const log = document.getElementById('email-log');
+        const e = document.createElement('div'); e.className='log-entry';
+        e.innerHTML=`<span class="log-time">${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+          <span class="log-msg">${(d.reply||'').replace(/</g,'&lt;')}</span>`;
+        log.prepend(e);
+      }
+    } catch(e) {
+      appendMsg('nexus', 'Connection error. Check Tailscale.');
+      statusLine.textContent = 'ERROR';
+    }
+  }
+
+  document.getElementById('send-btn').addEventListener('click', () => sendMessage(chatInput.value));
+  chatInput.addEventListener('keydown', e => { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(chatInput.value); }});
+
+  // ── Voice input ────────────────────────────────────────────────────────────
+  let mediaRec = null, recording = false;
+  const micBtn = document.getElementById('mic-btn');
+  const micIcon = document.getElementById('mic-icon');
+
+  micBtn.addEventListener('click', async () => {
+    if (recording) {
+      mediaRec && mediaRec.stop();
+      recording = false;
+      micBtn.classList.remove('recording');
+      micIcon.textContent = '◎';
+      statusLine.textContent = 'PROCESSING…';
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const chunks = [];
+      mediaRec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRec.ondataavailable = e => e.data.size && chunks.push(e.data);
+      mediaRec.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const fd = new FormData(); fd.append('audio', blob, 'voice.webm');
+        try {
+          const tr = await fetch(API + '/api/transcribe', { method: 'POST', body: fd });
+          const td = await tr.json();
+          if (td.transcript) sendMessage(td.transcript);
+          else statusLine.textContent = 'NO SPEECH';
+        } catch(e) { statusLine.textContent = 'TRANSCRIBE ERROR'; }
+      };
+      mediaRec.start(); recording = true;
+      micBtn.classList.add('recording');
+      micIcon.textContent = '■';
+      statusLine.textContent = 'LISTENING…';
+    } catch(e) { statusLine.textContent = 'MIC BLOCKED'; }
+  });
+
+  // ── Refresh all ────────────────────────────────────────────────────────────
+  document.getElementById('refresh-btn').addEventListener('click', refreshAll);
+  async function refreshAll() {
+    await Promise.all([refreshStatus(), refreshHealth(), refreshInfra()]);
+  }
+  refreshAll();
+  setInterval(refreshAll, 30000);
+  </script>
+</body>
+</html>
