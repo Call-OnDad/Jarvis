@@ -643,27 +643,40 @@ def _read_discord_channel_messages(channel_name, limit=8):
         return {"error": f"Unknown channel: {channel_name}"}
     if not DISCORD_BOT_TOKEN:
         return {"error": "DISCORD_BOT_TOKEN not set"}
-    try:
-        req = urllib.request.Request(
-            f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
-            headers={
-                "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
-                "User-Agent": "DiscordBot (nexus, 1.0)"
-            }
-        )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            msgs = json.loads(r.read())
-        return {"channel": channel_name, "messages": [
-            {
-                "author": m["author"]["username"],
-                "content": m["content"][:300],
-                "ts": m["timestamp"][:16].replace("T", " ")
-            } for m in msgs if m.get("content")
-        ]}
-    except urllib.error.HTTPError as e:
-        return {"error": f"Discord {e.code}: {e.read().decode(errors='ignore')[:100]}"}
-    except Exception as e:
-        return {"error": str(e)}
+    import time as _time
+    for attempt in range(3):  # retry up to 3x on connection reset
+        try:
+            req = urllib.request.Request(
+                f"https://discord.com/api/v10/channels/{channel_id}/messages?limit={limit}",
+                headers={
+                    "Authorization": f"Bot {DISCORD_BOT_TOKEN}",
+                    "User-Agent": "DiscordBot (nexus, 1.0)",
+                    "Connection": "close"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=15) as r:
+                msgs = json.loads(r.read())
+            return {"channel": channel_name, "messages": [
+                {
+                    "author": m["author"]["username"],
+                    "content": m["content"][:300],
+                    "ts": m["timestamp"][:16].replace("T", " ")
+                } for m in msgs if m.get("content")
+            ]}
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                retry_after = float(e.headers.get("Retry-After", 1))
+                _time.sleep(min(retry_after, 3))
+                continue
+            return {"error": f"Discord {e.code}: {e.read().decode(errors='ignore')[:100]}"}
+        except (ConnectionResetError, ConnectionError):
+            if attempt < 2:
+                _time.sleep(0.8 * (attempt + 1))
+                continue
+            return {"error": "Discord connection reset after retries"}
+        except Exception as e:
+            return {"error": str(e)}
+    return {"error": "Discord: max retries exceeded"}
 
 @app.route("/api/discord/channel/<name>")
 def discord_channel(name):
@@ -684,8 +697,9 @@ def _fetch_imap_structured(account, count=8, unread_only=False):
     for mid in reversed(ids):
         _, data = conn.fetch(mid, "(RFC822)")
         msg     = emaillib.message_from_bytes(data[0][1])
-        subject_raw, enc = decode_header(msg["Subject"] or "(no subject)")[0]
-        subject = subject_raw.decode(enc or "utf-8") if isinstance(subject_raw, bytes) else (subject_raw or "(no subject)")
+        raw_subj = str(msg["Subject"] or "(no subject)")
+        subject_raw, enc = decode_header(raw_subj)[0]
+        subject = subject_raw.decode(enc or "utf-8") if isinstance(subject_raw, bytes) else str(subject_raw or "(no subject)")
         # Get body preview
         preview = ""
         if msg.is_multipart():
@@ -712,6 +726,14 @@ def _fetch_imap_structured(account, count=8, unread_only=False):
 
 @app.route("/api/email/inbox")
 def email_inbox():
+    # Serve from cache (updated every 10 min by background thread)
+    entry = nexus_cache.cache_get("email_inbox")
+    if entry:
+        age = round(nexus_cache.cache_age("email_inbox"))
+        data = dict(entry["data"])
+        data["cache_age"] = age
+        return jsonify(data)
+    # Cache miss — fetch live (slow, ~25s)
     accounts = _load_email_accounts()
     if not accounts:
         return jsonify({"error": "No email accounts configured"})
@@ -722,7 +744,7 @@ def email_inbox():
             result.append({"account": acc["name"], "messages": msgs, "error": None})
         except Exception as e:
             result.append({"account": acc["name"], "messages": [], "error": str(e)})
-    return jsonify({"accounts": result})
+    return jsonify({"accounts": result, "cache_age": None})
 
 
 # ── Community / DB stats ───────────────────────────────────────────────────────
@@ -763,21 +785,26 @@ def community_stats():
 
 # ── Domain ping ────────────────────────────────────────────────────────────────
 
+def _check_domain(domain):
+    try:
+        req = urllib.request.Request(
+            f"https://{domain}", headers={"User-Agent": "NEXUS/4.0"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return domain, {"status": "up", "code": r.status}
+    except urllib.error.HTTPError as e:
+        return domain, {"status": "up" if e.code < 500 else "down", "code": e.code}
+    except Exception as e:
+        return domain, {"status": "down", "error": str(e)[:60]}
+
 @app.route("/api/domains/status")
 def domains_status():
+    import concurrent.futures
     domains = ["call-on.dad", "call-on.mom", "call-on.media", "call-on.shop"]
     results = {}
-    for d in domains:
-        try:
-            req = urllib.request.Request(
-                f"https://{d}", headers={"User-Agent": "NEXUS/4.0"}
-            )
-            with urllib.request.urlopen(req, timeout=6) as r:
-                results[d] = {"status": "up", "code": r.status}
-        except urllib.error.HTTPError as e:
-            results[d] = {"status": "up" if e.code < 500 else "down", "code": e.code}
-        except Exception as e:
-            results[d] = {"status": "down", "error": str(e)[:60]}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+        for domain, result in ex.map(_check_domain, domains):
+            results[domain] = result
     return jsonify(results)
 
 

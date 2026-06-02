@@ -568,10 +568,25 @@
   function loadDept(dept) {
     switch(dept) {
       case 'infra':     refreshInfra(); break;
-      case 'marketing': loadDiscordFeed('marketing','feed-marketing'); loadDiscordFeed('seo','feed-seo'); loadDiscordFeed('content','feed-content'); break;
-      case 'business':  loadDomains(); loadDiscordFeed('business','feed-business'); loadDiscordFeed('manager','feed-manager'); break;
-      case 'community': loadCommunityStats(); loadDiscordFeed('community','feed-community'); loadDiscordFeed('general','feed-general'); break;
-      case 'security':  loadDiscordFeed('security','feed-security'); loadDiscordFeed('infra','feed-infra'); break;
+      case 'marketing':
+        loadDiscordFeed('marketing','feed-marketing');
+        setTimeout(()=>loadDiscordFeed('seo','feed-seo'), 400);
+        setTimeout(()=>loadDiscordFeed('content','feed-content'), 800);
+        break;
+      case 'business':
+        loadDomains();
+        loadDiscordFeed('business','feed-business');
+        setTimeout(()=>loadDiscordFeed('manager','feed-manager'), 600);
+        break;
+      case 'community':
+        loadCommunityStats();
+        loadDiscordFeed('community','feed-community');
+        setTimeout(()=>loadDiscordFeed('general','feed-general'), 600);
+        break;
+      case 'security':
+        loadDiscordFeed('security','feed-security');
+        setTimeout(()=>loadDiscordFeed('infra','feed-infra'), 600);
+        break;
     }
   }
 

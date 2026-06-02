@@ -164,22 +164,108 @@ def _post_alert(message):
 
 # ── Background loop ───────────────────────────────────────────────────────────
 
+def _poll_email():
+    """Cache email inbox — IMAP is slow so poll every 10 min, not every 60s."""
+    try:
+        sys.path.insert(0, '/opt/ahas')
+        # Import email helpers from api_server context — use direct IMAP
+        import imaplib, email as emaillib
+        from email.header import decode_header
+
+        accounts_config = []
+        if os.environ.get("GMAIL_APP_PASSWORD"):
+            accounts_config.append({
+                "name": "Gmail",
+                "host": "imap.gmail.com",
+                "user": os.environ.get("GMAIL_USER", ""),
+                "password": os.environ.get("GMAIL_APP_PASSWORD"),
+                "ssl": True
+            })
+        if os.environ.get("GMAIL2_APP_PASSWORD") and os.environ.get("GMAIL2_USER"):
+            accounts_config.append({
+                "name": "Gmail 2",
+                "host": "imap.gmail.com",
+                "user": os.environ.get("GMAIL2_USER", ""),
+                "password": os.environ.get("GMAIL2_APP_PASSWORD"),
+                "ssl": True
+            })
+        if os.environ.get("YAHOO_APP_PASSWORD") and os.environ.get("YAHOO_USER"):
+            accounts_config.append({
+                "name": "Yahoo",
+                "host": "imap.mail.yahoo.com",
+                "user": os.environ.get("YAHOO_USER", ""),
+                "password": os.environ.get("YAHOO_APP_PASSWORD"),
+                "ssl": True
+            })
+
+        results = []
+        for acc in accounts_config:
+            try:
+                conn = imaplib.IMAP4_SSL(acc["host"]) if acc["ssl"] else imaplib.IMAP4(acc["host"])
+                conn.login(acc["user"], acc["password"])
+                conn.select("inbox")
+                _, msgs = conn.search(None, "ALL")
+                ids = msgs[0].split()[-8:]
+                messages = []
+                for mid in reversed(ids):
+                    _, data = conn.fetch(mid, "(RFC822)")
+                    msg = emaillib.message_from_bytes(data[0][1])
+                    raw_subj = str(msg["Subject"] or "(no subject)")
+                    subject_raw, enc = decode_header(raw_subj)[0]
+                    subject = subject_raw.decode(enc or "utf-8") if isinstance(subject_raw, bytes) else str(subject_raw or "(no subject)")
+                    preview = ""
+                    if msg.is_multipart():
+                        for part in msg.walk():
+                            if part.get_content_type() == "text/plain":
+                                try:
+                                    preview = part.get_payload(decode=True).decode(errors="ignore")[:120]
+                                except:
+                                    pass
+                                break
+                    else:
+                        try:
+                            preview = msg.get_payload(decode=True).decode(errors="ignore")[:120]
+                        except:
+                            pass
+                    messages.append({
+                        "from":    (msg["From"] or "Unknown")[:60],
+                        "subject": subject[:80],
+                        "date":    (msg["Date"] or "")[:25],
+                        "preview": preview.strip()[:120]
+                    })
+                conn.logout()
+                results.append({"account": acc["name"], "messages": messages, "error": None})
+            except Exception as e:
+                results.append({"account": acc["name"], "messages": [], "error": str(e)[:80]})
+
+        cache_set("email_inbox", {"accounts": results})
+    except Exception as e:
+        print(f"[cache] email poll error: {e}")
+
+
 def _loop():
     # Initial warm-up poll
     _poll_proxmox()
     _poll_ha()
     _poll_services()
     print("[cache] initial poll complete")
+    # Email poll on startup (runs in background thread so no blocking)
+    threading.Thread(target=_poll_email, daemon=True, name="nexus-email-poll").start()
 
     tick = 0
+    email_tick = 0
     while True:
         time.sleep(POLL_INTERVAL)
         _poll_proxmox()
         _poll_ha()
         _poll_services()
         tick += 1
+        email_tick += 1
         if tick % ALERT_EVERY == 0:
             _check_alerts()
+        if email_tick >= 10:  # every 10 minutes
+            email_tick = 0
+            threading.Thread(target=_poll_email, daemon=True, name="nexus-email-refresh").start()
 
 
 def start():
