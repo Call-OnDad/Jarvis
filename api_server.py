@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import anthropic, os, sys, urllib.request, urllib.error, json, subprocess
+import requests, os, sys, urllib.request, urllib.error, json, subprocess
 import asyncio, base64, imaplib, email as emaillib
 from email.header import decode_header
 
@@ -12,7 +12,35 @@ import nexus_cache
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 limiter = Limiter(get_remote_address, app=app, default_limits=[])
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+# LiteLLM proxy — replaces Anthropic client
+LITELLM_URL = "http://192.168.0.28:4000/v1"
+LITELLM_KEY = "litellm-secret-key-12345"
+
+class _Resp:
+    def __init__(self, d):
+        self.stop_reason = d.get("stop_reason", "end_turn")
+        class _B:
+            def __init__(self, b):
+                self.type = b.get("type","text")
+                self.text = b.get("text","")
+                # tool_use fields
+                self.id   = b.get("id","")
+                self.name = b.get("name","")
+                self.input= b.get("input",{})
+        self.content = [_B(b) for b in d.get("content", [])]
+
+class _Msgs:
+    def create(self, **kw):
+        r = requests.post(LITELLM_URL + "/messages",
+            headers={"Authorization": f"Bearer {LITELLM_KEY}"},
+            json={k: v for k,v in kw.items() if k in
+                  ["model","max_tokens","messages","system","tools"]})
+        return _Resp(r.json())
+
+class _Client:
+    def __init__(self): self.messages = _Msgs()
+
+client = _Client()
 
 HA_URL        = "http://192.168.0.9:8123"
 HA_TOKEN      = os.environ.get("HA_TOKEN", "")
@@ -531,7 +559,7 @@ def ask():
 
     for _ in range(8):
         resp = client.messages.create(
-            model="claude-haiku-4-5",
+            model="openrouter-claude",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
@@ -976,7 +1004,7 @@ def agent_chat(dept):
 
     for _ in range(8):
         resp = client.messages.create(
-            model="claude-haiku-4-5",
+            model="openrouter-claude",
             max_tokens=1024,
             system=system,
             tools=TOOLS,
