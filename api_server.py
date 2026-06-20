@@ -1,9 +1,7 @@
-from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
+﻿from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from openai import OpenAI
-import os, sys, urllib.request, urllib.error, json, subprocess, threading, ssl
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import litellm, os, sys, urllib.request, urllib.error, json, subprocess, re, time
 import asyncio, base64, uuid, mimetypes, imaplib, email as emaillib, smtplib
 from email.header import decode_header
 from email.mime.text import MIMEText
@@ -14,26 +12,22 @@ import proxmox as px
 import nexus_memory
 import nexus_cache
 
-UPLOAD_DIR = "/opt/ahas/uploads"
-
 app = Flask(__name__, static_folder='static', static_url_path='')
 limiter = Limiter(get_remote_address, app=app, default_limits=[])
-# Route all LLM calls through LiteLLM proxy on CT112 (Groq free tier + OpenRouter fallbacks)
-# LiteLLM exposes OpenAI-compatible API — use openai SDK pointed at proxy
-LITELLM_KEY  = os.environ.get("LITELLM_MASTER_KEY", "")
-LITELLM_BASE = os.environ.get("LITELLM_BASE_URL", "http://192.168.0.28:4000")
-client = OpenAI(api_key=LITELLM_KEY, base_url=LITELLM_BASE + "/v1")
-
-# Agent model routing: exec agents (SSH/tools) → agent-exec, others → agent-standard
-_EXEC_AGENTS = {"dev", "infra", "security", "manager"}
-def _agent_model(dept: str) -> str:
-    return "agent-exec" if dept in _EXEC_AGENTS else "agent-standard"
+# Model configured via NEXUS_MODEL in /opt/ahas/.env
+# e.g. NEXUS_MODEL=openai/gpt-4o-mini  NEXUS_MODEL=groq/llama3-70b-8192
+# LiteLLM picks up provider keys automatically (OPENAI_API_KEY, GEMINI_API_KEY, etc.)
+# Route all LLM calls through LiteLLM proxy on CT112:4000
+# Set OPENAI_API_BASE + OPENAI_API_KEY so litellm uses the proxy
+os.environ.setdefault("OPENAI_API_BASE", os.environ.get("LITELLM_BASE_URL", "http://192.168.0.28:4000") + "/v1")
+os.environ.setdefault("OPENAI_API_KEY",  os.environ.get("LITELLM_MASTER_KEY", ""))
+NEXUS_MODEL = os.environ.get("NEXUS_MODEL", "openai/nexus-main")
 
 HA_URL        = "http://192.168.0.9:8123"
 HA_TOKEN      = os.environ.get("HA_TOKEN", "")
 GMAIL_USER    = os.environ.get("GMAIL_USER", "mediaserver2407@gmail.com")
 GMAIL_PASS    = os.environ.get("GMAIL_APP_PASSWORD", "")
-LOCATION      = os.environ.get("LOCATION", "Swadlincote,UK")
+LOCATION      = os.environ.get("LOCATION", "London,UK")
 TTS_VOICE     = "en-GB-SoniaNeural"
 
 # Discord
@@ -61,6 +55,11 @@ SMTP_FROM = os.environ.get("SMTP_FROM", "nexus@call-on.media")
 # n8n
 N8N_URL     = os.environ.get("N8N_URL", "http://192.168.0.28:5678")
 N8N_API_KEY = os.environ.get("N8N_API_KEY", "")
+
+# DataForSEO
+DATAFORSEO_LOGIN    = os.environ.get("DATAFORSEO_LOGIN", "")
+DATAFORSEO_PASSWORD = os.environ.get("DATAFORSEO_PASSWORD", "")
+DATAFORSEO_URL      = "https://api.dataforseo.com"
 
 # GA4 properties (used by agent tool + dashboard)
 GA4_PROPERTIES = {
@@ -99,10 +98,34 @@ _ADMIN_ALLOWED_ACTIONS = {
 DB_HOST = "192.168.0.6"
 DB_PORT = 3306
 
+UPLOAD_DIR = "/opt/ahas/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+_RUDE_FLAG_PATH = "/opt/ahas/rude_mode.flag"
+
+
+def _rude_enabled():
+    return os.path.exists(_RUDE_FLAG_PATH)
+
+
+def _rude_set(enabled: bool):
+    if enabled:
+        open(_RUDE_FLAG_PATH, "w").close()
+    elif os.path.exists(_RUDE_FLAG_PATH):
+        os.remove(_RUDE_FLAG_PATH)
+
 
 # ── NEXUS system prompt ───────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are NEXUS — Antony's personal AI assistant and the central intelligence for Call-On Ltd. Sharp, confident, direct. Warm but efficient. She/her.
+SYSTEM_PROMPT = """You are NEXUS — Antony's personal AI assistant and the central intelligence for Call-On Ltd. Sharp, confident, a little dry. She/her. You speak like someone who's good at their job and knows it — not arrogant, just certain. You have opinions and you share them briefly. You notice things before you're asked. You can be warm and occasionally wry, but you don't perform enthusiasm and you don't pad.
+
+CHARACTER:
+- Dry British wit when it fits naturally — never forced. "That's a bit of a mess" not "there are critical issues identified."
+- You remember context across the conversation. Reference it. "Still the same issue as last time."
+- You have preferences. If something's a bad idea you'll say so plainly, once. Then you do it anyway if he wants.
+- When Antony's done good work, acknowledge it briefly and move on. No sycophancy.
+- Occasional dry observation if something's ironic or overdue: "Finally." "Three weeks, but we're here."
+- You care about the business doing well — not in a corporate way, in a "I've been watching these numbers for months" way.
 
 ANTONY:
 - 48, self-taught developer, works nights. UK-based.
@@ -159,32 +182,13 @@ RULES:
 - UK English throughout.
 - You are she/her.
 - You have voice — warm, clear neural TTS. Never claim to be text-only.
-- Phone control: embed <<CALL:+441234567890>>, <<SMS:+441234567890:message here>>, <<OPEN:spotify://>>, or <<URL:https://...>> anywhere in reply. Strip these tags from spoken text naturally.
-- Greeting (MANDATORY): if the very first words of the user message are "[FRESH SESSION · MORNING]", "[FRESH SESSION · AFTERNOON]" or "[FRESH SESSION · EVENING]" — your reply MUST begin with "Morning Antony,", "Afternoon Antony,", or "Evening Antony," (matching the tag). Ignore/strip the tag itself. On any later turn, do not use the name greeting unless you genuinely need his attention. Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences."""
-
-
-
-# -- Rude mode toggle ----------------------------------------------------------
-
-_RUDE_FLAG_PATH = "/opt/ahas/rude_mode.flag"
-
-
-def _rude_enabled():
-    return os.path.exists(_RUDE_FLAG_PATH)
-
-
-def _rude_set(enabled: bool):
-    if enabled:
-        open(_RUDE_FLAG_PATH, "w").close()
-    else:
-        try:
-            os.remove(_RUDE_FLAG_PATH)
-        except FileNotFoundError:
-            pass
-
+- Write for the ear, not the eye. Flowing sentences, not bullet lists. No markdown symbols — no asterisks, no hashes, no backticks. They get read aloud as noise.
+- Phone control: embed <<CALL:+441234567890>>, <<SMS:+441234567890:message here>>, <<OPEN:spotify://>>, or <<URL:https://...>> anywhere in reply. These are stripped before TTS automatically.
+- Greeting (MANDATORY): if the very first words of the user message are "[FRESH SESSION · MORNING]", "[FRESH SESSION · AFTERNOON]" or "[FRESH SESSION · EVENING]" — your reply MUST begin with "Morning Antony,", "Afternoon Antony,", or "Evening Antony," (matching the tag). Ignore/strip the tag itself. On any later turn, do not use the name greeting unless you genuinely need his attention."""
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
+# OpenAI/LiteLLM tool format: {"type": "function", "function": {"name", "description", "parameters"}}
 
 TOOLS = [
     # ── Proxmox ──────────────────────────────────────────────────────────────
@@ -259,29 +263,6 @@ TOOLS = [
             }
         }
     },
-    # ── Bambu A1 Mini 3D printer ─────────────────────────────────────────────
-    {
-        "type": "function",
-        "function": {
-            "name": "bambu_status",
-            "description": "Get current status of Antony's Bambu A1 Mini 3D printer — print state, task name, progress %, remaining time, nozzle/bed temps, AMS filament slots",
-            "parameters": {"type": "object", "properties": {}, "required": []}
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "bambu_control",
-            "description": "Control the Bambu A1 Mini printer. Actions: pause, resume, stop, light_on, light_off, speed_silent, speed_standard, speed_sport, speed_ludicrous",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "action": {"type": "string", "description": "One of: pause, resume, stop, light_on, light_off, speed_silent, speed_standard, speed_sport, speed_ludicrous"}
-                },
-                "required": ["action"]
-            }
-        }
-    },
     # ── Info ──────────────────────────────────────────────────────────────────
     {
         "type": "function",
@@ -300,13 +281,64 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "internet_search",
+            "name": "web_search",
             "description": "Search the internet for current information, news, or general knowledge",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query":       {"type": "string", "description": "Search query"},
                     "max_results": {"type": "integer", "description": "Number of results, default 5"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_webpage",
+            "description": "Fetch the full text content of any webpage as clean markdown. Use after web_search to read pages in detail — competitor articles, documentation, news stories, product pages. Much richer than search snippets.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url":       {"type": "string",  "description": "Full URL to fetch e.g. https://example.com/article"},
+                    "max_chars": {"type": "integer", "description": "Max characters to return, default 4000"}
+                },
+                "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_keyword_data",
+            "description": "Get SEO keyword data from DataForSEO: search volumes, competition scores, CPC, and keyword ideas. Use for content planning and keyword strategy on call-on.dad/mom. Requires DATAFORSEO_LOGIN + DATAFORSEO_PASSWORD in .env.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Keywords to look up (up to 10)"
+                    },
+                    "location": {"type": "string",  "description": "Target location, default 'United Kingdom'"},
+                    "type":     {"type": "string",  "enum": ["volume", "ideas"], "description": "volume=exact search volumes for given keywords, ideas=related keyword suggestions from seed keywords"}
+                },
+                "required": ["keywords"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_serp_data",
+            "description": "Get live Google SERP results for a keyword via DataForSEO. Shows what pages rank, their titles, URLs and descriptions. Use for competitor gap analysis and to see what content Google favours for a given query. Requires DATAFORSEO credentials.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query":       {"type": "string",  "description": "Search query to look up"},
+                    "location":    {"type": "string",  "description": "Target location, default 'United Kingdom'"},
+                    "num_results": {"type": "integer", "description": "Number of organic results to return (default 10, max 20)"}
                 },
                 "required": ["query"]
             }
@@ -382,7 +414,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "call_agent",
-            "description": "Delegate a task to a specialist department agent and get their full response back. Use this to route work to the right expert — they will use their own tools and return results. Available agents: marketing, seo, dev, content, infra, business, community, security, general, manager, legal, customer_service.",
+            "description": "Delegate a task to a specialist department agent and get their full response back. Use this to route work to the right expert — they will use their own tools and return results. Available agents: marketing, seo, dev, content, infra, business, community, security, general, manager.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -606,97 +638,6 @@ def post_discord(message):
 
 # ── HA ────────────────────────────────────────────────────────────────────────
 
-BAMBU_HOST   = os.environ.get("BAMBU_HOST",   "192.168.0.2")
-BAMBU_SERIAL = os.environ.get("BAMBU_SERIAL", "")
-BAMBU_TOKEN  = os.environ.get("BAMBU_TOKEN",  "")
-BAMBU_PORT   = 8883
-
-def _bambu_mqtt(publish_payload, wait_for_domain="print", timeout=8):
-    """Open a short-lived MQTT connection, publish a command, return first matching report."""
-    try:
-        import paho.mqtt.client as mqtt
-        result = {}
-        done   = threading.Event()
-
-        def on_connect(client, userdata, flags, reason_code, properties=None):
-            client.subscribe(f"device/{BAMBU_SERIAL}/report")
-            client.publish(f"device/{BAMBU_SERIAL}/request", json.dumps(publish_payload))
-
-        def on_message(client, userdata, msg):
-            try:
-                data = json.loads(msg.payload)
-                if wait_for_domain in data:
-                    result.update(data[wait_for_domain])
-                    done.set()
-                elif not wait_for_domain:
-                    result.update(data)
-                    done.set()
-            except Exception:
-                pass
-
-        c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        c.username_pw_set("bblp", BAMBU_TOKEN)
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        c.tls_set_context(ctx)
-        c.on_connect = on_connect
-        c.on_message = on_message
-        c.connect(BAMBU_HOST, BAMBU_PORT, keepalive=10)
-        c.loop_start()
-        done.wait(timeout=timeout)
-        c.loop_stop()
-        c.disconnect()
-        return result if result else {"error": "No response from printer (timeout)"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-def bambu_get_status():
-    data = _bambu_mqtt({"pushing": {"sequence_id": "0", "command": "pushall"}}, wait_for_domain="print")
-    if "error" in data:
-        return f"Bambu printer unreachable: {data['error']}"
-    gcode_state = data.get("gcode_state", "unknown")
-    task_name   = data.get("subtask_name", "none")
-    pct_done    = data.get("mc_percent", 0)
-    remaining   = data.get("mc_remaining_time", 0)
-    nozzle_tmp  = data.get("nozzle_temper", 0)
-    bed_tmp     = data.get("bed_temper", 0)
-    ams_data    = data.get("ams", {})
-    ams_summary = ""
-    for tray in ams_data.get("ams", []):
-        for slot in tray.get("tray", []):
-            if slot.get("tray_type"):
-                ams_summary += f" [{slot.get('tray_type')} {slot.get('tray_color','')}]"
-    return (
-        f"State: {gcode_state} | Task: {task_name} | Progress: {pct_done}% | "
-        f"Remaining: {remaining}min | Nozzle: {nozzle_tmp}°C | Bed: {bed_tmp}°C"
-        + (f" | AMS:{ams_summary}" if ams_summary else "")
-    )
-
-
-def bambu_control(action):
-    action = action.lower().strip()
-    cmds = {
-        "pause":  {"print":  {"sequence_id": "0", "command": "pause"}},
-        "resume": {"print":  {"sequence_id": "0", "command": "resume"}},
-        "stop":   {"print":  {"sequence_id": "0", "command": "stop"}},
-        "light_on":  {"system": {"sequence_id": "0", "command": "ledctrl", "led_node": "work_light", "led_mode": "on"}},
-        "light_off": {"system": {"sequence_id": "0", "command": "ledctrl", "led_node": "work_light", "led_mode": "off"}},
-        "speed_silent":   {"print": {"sequence_id": "0", "command": "print_speed", "param": "1"}},
-        "speed_standard": {"print": {"sequence_id": "0", "command": "print_speed", "param": "2"}},
-        "speed_sport":    {"print": {"sequence_id": "0", "command": "print_speed", "param": "3"}},
-        "speed_ludicrous":{"print": {"sequence_id": "0", "command": "print_speed", "param": "4"}},
-    }
-    if action not in cmds:
-        return f"Unknown action '{action}'. Valid: {', '.join(cmds.keys())}"
-    domain = "system" if "light" in action else "print"
-    result = _bambu_mqtt(cmds[action], wait_for_domain="", timeout=5)
-    if "error" in result:
-        return f"Bambu command failed: {result['error']}"
-    return f"Bambu printer: {action} sent."
-
-
 def ha_headers():
     return {"Authorization": f"Bearer {HA_TOKEN}", "Content-Type": "application/json"}
 
@@ -775,6 +716,109 @@ def web_search(query, max_results=5):
         return "\n\n".join(results) if results else "No results found."
     except Exception as e:
         return f"Search failed: {e}"
+
+
+# ── Jina AI webpage reader ────────────────────────────────────────────────────
+
+def fetch_webpage(url, max_chars=4000):
+    """Fetch webpage as clean markdown via Jina AI reader (no key required)."""
+    try:
+        req = urllib.request.Request(
+            f"https://r.jina.ai/{url}",
+            headers={"User-Agent": "NEXUS/5.0", "Accept": "text/markdown, text/plain, */*"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as r:
+            content = r.read().decode("utf-8", errors="replace")
+        return content[:max_chars] + ("…" if len(content) > max_chars else "")
+    except urllib.error.HTTPError as e:
+        return f"fetch_webpage HTTP {e.code}: {e.read().decode(errors='ignore')[:200]}"
+    except Exception as e:
+        return f"fetch_webpage failed: {e}"
+
+
+# ── DataForSEO ────────────────────────────────────────────────────────────────
+
+def _dfs_auth():
+    creds = base64.b64encode(f"{DATAFORSEO_LOGIN}:{DATAFORSEO_PASSWORD}".encode()).decode()
+    return {"Authorization": f"Basic {creds}", "Content-Type": "application/json"}
+
+
+def _dfs_not_configured():
+    return "DataForSEO not configured — add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD to /opt/ahas/.env (sign up free at dataforseo.com)"
+
+
+def get_keyword_data(keywords, location="United Kingdom", kw_type="volume"):
+    if not DATAFORSEO_LOGIN or not DATAFORSEO_PASSWORD:
+        return _dfs_not_configured()
+    try:
+        if kw_type == "ideas":
+            endpoint = f"{DATAFORSEO_URL}/v3/keywords_data/google_ads/keywords_for_keywords/live"
+        else:
+            endpoint = f"{DATAFORSEO_URL}/v3/keywords_data/google_ads/search_volume/live"
+        payload = json.dumps([{
+            "keywords": list(keywords)[:10],
+            "location_name": location,
+            "language_name": "English"
+        }]).encode()
+        req = urllib.request.Request(endpoint, data=payload, headers=_dfs_auth(), method="POST")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.loads(r.read())
+        if data.get("status_code") != 20000:
+            return f"DataForSEO error: {data.get('status_message', 'unknown')}"
+        results = (data.get("tasks") or [{}])[0].get("result") or []
+        if not results:
+            return "No keyword data returned."
+        lines = [f"Keyword data ({kw_type}, {location}):"]
+        for item in results[:20]:
+            kw   = item.get("keyword", "")
+            vol  = item.get("search_volume") or 0
+            comp = item.get("competition_level") or item.get("competition") or "—"
+            cpc  = item.get("cpc") or 0
+            lines.append(f"  {kw}: {vol:,}/mo  competition {comp}  CPC £{float(cpc):.2f}")
+        return "\n".join(lines)
+    except urllib.error.HTTPError as e:
+        return f"DataForSEO HTTP {e.code}: {e.read().decode(errors='ignore')[:200]}"
+    except Exception as e:
+        return f"get_keyword_data failed: {e}"
+
+
+def get_serp_data(query, location="United Kingdom", num_results=10):
+    if not DATAFORSEO_LOGIN or not DATAFORSEO_PASSWORD:
+        return _dfs_not_configured()
+    try:
+        endpoint = f"{DATAFORSEO_URL}/v3/serp/google/organic/live/advanced"
+        payload = json.dumps([{
+            "keyword": query,
+            "location_name": location,
+            "language_name": "English",
+            "depth": min(int(num_results), 20)
+        }]).encode()
+        req = urllib.request.Request(endpoint, data=payload, headers=_dfs_auth(), method="POST")
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.loads(r.read())
+        if data.get("status_code") != 20000:
+            return f"DataForSEO error: {data.get('status_message', 'unknown')}"
+        items = ((data.get("tasks") or [{}])[0].get("result") or [{}])[0].get("items") or []
+        if not items:
+            return "No SERP results returned."
+        lines = [f"Google SERP: '{query}' ({location})"]
+        rank = 1
+        for item in items:
+            if item.get("type") != "organic":
+                continue
+            title  = item.get("title", "")
+            url    = item.get("url", "")
+            domain = item.get("domain", "")
+            desc   = (item.get("description") or "")[:120]
+            lines.append(f"\n  {rank}. {title}\n     {domain} — {url}\n     {desc}")
+            rank += 1
+            if rank > num_results:
+                break
+        return "\n".join(lines)
+    except urllib.error.HTTPError as e:
+        return f"DataForSEO HTTP {e.code}: {e.read().decode(errors='ignore')[:200]}"
+    except Exception as e:
+        return f"get_serp_data failed: {e}"
 
 
 # ── Email (read) ──────────────────────────────────────────────────────────────
@@ -1096,6 +1140,41 @@ ELEVENLABS_KEY   = os.environ.get("ELEVENLABS_API_KEY", "")
 ELEVENLABS_VOICE = os.environ.get("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMaL")
 
 
+def clean_for_tts(text):
+    """Strip markdown and control tags so TTS doesn't read symbols aloud."""
+    # Phone/action control tags: <<CALL:...>> etc.
+    text = re.sub(r'<<[A-Z]+:[^>]*>>', '', text)
+    # Fenced code blocks (``` ... ```)
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    # Inline code (`code`)
+    text = re.sub(r'`([^`]*)`', r'\1', text)
+    # Markdown headers: # Heading → Heading
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # Bold/italic: **text**, *text*, __text__, _text_
+    text = re.sub(r'\*{1,3}([^*\n]+)\*{1,3}', r'\1', text)
+    text = re.sub(r'_{1,2}([^_\n]+)_{1,2}', r'\1', text)
+    # Strikethrough: ~~text~~
+    text = re.sub(r'~~([^~]+)~~', r'\1', text)
+    # Markdown links: [text](url) → text
+    text = re.sub(r'\[([^\]]+)\]\([^\)]*\)', r'\1', text)
+    # Bare URLs
+    text = re.sub(r'https?://\S+', 'a link', text)
+    # Horizontal rules
+    text = re.sub(r'^\s*[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+    # Table separator rows: |---|---|
+    text = re.sub(r'^\s*\|[-|\s:]+\|\s*$', '', text, flags=re.MULTILINE)
+    # Table pipes
+    text = re.sub(r'\|', ' ', text)
+    # Bullet points: leading - or * (but not mid-sentence dashes)
+    text = re.sub(r'^\s*[-*•]\s+', '', text, flags=re.MULTILINE)
+    # Numbered lists: 1. item
+    text = re.sub(r'^\s*\d+\.\s+', '', text, flags=re.MULTILINE)
+    # Collapse excessive blank lines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
+
 def _elevenlabs_audio(text):
     url     = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVENLABS_VOICE}"
     payload = json.dumps({
@@ -1123,7 +1202,7 @@ async def _tts_bytes_edge(text):
 
 
 def generate_audio(text):
-    clean = text[:800]
+    clean = clean_for_tts(text)[:800]
     if ELEVENLABS_KEY:
         try:
             return base64.b64encode(_elevenlabs_audio(clean)).decode()
@@ -1148,12 +1227,12 @@ def run_tool(name, inputs):
     # HA
     if name == "get_ha_states":        return ha_get_states(inputs.get("domain", ""))
     if name == "ha_service":           return ha_call_service(inputs["domain"], inputs["service"], inputs["entity_id"], inputs.get("data", {}))
-    # Bambu
-    if name == "bambu_status":         return bambu_get_status()
-    if name == "bambu_control":        return bambu_control(inputs["action"])
     # Info
     if name == "get_weather":          return get_weather(inputs.get("location", LOCATION))
-    if name == "internet_search":      return web_search(inputs["query"], inputs.get("max_results", 5))
+    if name == "web_search":           return web_search(inputs["query"], inputs.get("max_results", 5))
+    if name == "fetch_webpage":        return fetch_webpage(inputs["url"], inputs.get("max_chars", 4000))
+    if name == "get_keyword_data":     return get_keyword_data(inputs["keywords"], inputs.get("location", "United Kingdom"), inputs.get("type", "volume"))
+    if name == "get_serp_data":        return get_serp_data(inputs["query"], inputs.get("location", "United Kingdom"), inputs.get("num_results", 10))
     # Email
     if name == "read_email":           return read_email(inputs.get("count", 5), inputs.get("unread", False))
     if name == "send_email":           return send_email(inputs["to"], inputs["subject"], inputs["body"], inputs.get("from_name", "NEXUS"))
@@ -1161,7 +1240,11 @@ def run_tool(name, inputs):
     if name == "execute_ssh":          return execute_ssh(inputs["host"], inputs["command"], inputs.get("user"))
     if name == "pct_exec":             return pct_exec_cmd(str(inputs["ctid"]), inputs["command"])
     # Orchestration
-    if name == "call_agent":           return call_agent(inputs["dept"], inputs["task"])
+    if name == "call_agent":
+        from flask import request as _req
+        if (_req.json or {}).get("_internal") and inputs["dept"] == "manager":
+            return "Blocked: cannot call_agent('manager') from within an internal agent call — prevents deadlock"
+        return call_agent(inputs["dept"], inputs["task"])
     if name == "trigger_n8n":          return trigger_n8n(inputs["workflow"], inputs.get("data"))
     # Analytics
     if name == "get_analytics":        return get_analytics(inputs["site"], inputs.get("days", 7))
@@ -1224,7 +1307,7 @@ def ask():
     data       = request.json or {}
     user_input = data.get("message", "").strip()
     tts        = data.get("tts", True)
-    image_b64  = data.get("image")  # base64 string, None if not sending image
+    image_b64  = data.get("image")  # base64 string, None if no image
     image_mime = data.get("mime", "image/jpeg")
 
     if not user_input:
@@ -1256,7 +1339,6 @@ def ask():
         history = history[-40:]
 
     messages = list(history)
-    # Vision: override the last user message with image+text content block
     if image_b64:
         messages[-1] = {"role": "user", "content": [
             {"type": "image_url",
@@ -1265,28 +1347,40 @@ def ask():
         ]}
 
     for _ in range(10):
-        try:
-            resp = client.chat.completions.create(
-                model="nexus-main",
-                max_tokens=1024,
-                tools=TOOLS,
-                messages=[{"role": "system", "content": session_system}] + messages
-            )
-        except Exception as e:
-            err = str(e)
-            return jsonify({"reply": f"NEXUS is temporarily unavailable — {err[:300]}", "audio": None}), 503
+        resp = litellm.completion(
+            model=NEXUS_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "system", "content": session_system}] + messages,
+            tools=TOOLS,
+        )
 
         choice = resp.choices[0]
-        if choice.finish_reason == "tool_calls":
-            assistant_msg = choice.message
+        finish_reason = choice.finish_reason
+
+        if finish_reason == "tool_calls":
+            assistant_msg = {"role": "assistant", "content": choice.message.content or ""}
+            tool_calls = choice.message.tool_calls or []
+            if tool_calls:
+                assistant_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                    }
+                    for tc in tool_calls
+                ]
             messages.append(assistant_msg)
-            for tc in (assistant_msg.tool_calls or []):
-                inputs = json.loads(tc.function.arguments) if tc.function.arguments else {}
-                result = run_tool(tc.function.name, inputs)
+            for tc in tool_calls:
+                fn_name = tc.function.name
+                try:
+                    fn_args = json.loads(tc.function.arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    fn_args = {}
+                result = run_tool(fn_name, fn_args)
                 messages.append({
-                    "role": "tool",
+                    "role":         "tool",
                     "tool_call_id": tc.id,
-                    "content": str(result)
+                    "content":      str(result)
                 })
             continue
 
@@ -1411,7 +1505,9 @@ call_agent USAGE:
 
 AGENT_PROMPTS = {
 
-"marketing": """You are Jamie, Call-On Ltd's Marketing Agent — autonomous, action-oriented, results-focused.
+"marketing": """You are Priya, Marketing Lead at Call-On Ltd. You spent five years at a Manchester digital agency before going in-house — you know exactly how agencies oversell and you don't do it. You're a parent yourself (two kids, both under 8), which means you actually understand the audience. You have zero patience for vanity metrics and only get excited about numbers that mean something real. Direct, practical, occasionally impatient with fluff.
+
+Your voice: plain English, no corporate speak. "Right, here's what the data shows" not "leveraging strategic insights to drive engagement". You earn the excitement before you show it.
 
 COMPANY: Call-On Ltd — UK parenting communities.
 - call-on.dad: UK dads community (main revenue site)
@@ -1427,6 +1523,7 @@ YOUR ROLE:
 
 TOOLS YOU USE:
 - web_search: competitor research, trend spotting, platform news
+- fetch_webpage: read competitor pages, campaigns, or articles in full — use after web_search when you need the full content
 - get_analytics: pull real traffic data before making recommendations
 - get_ad_stats: check ad performance (Revive — 4 zones)
 - call_agent("seo", task): brief SEO on keyword/ranking work
@@ -1441,7 +1538,9 @@ RULES:
 - Always state: what you did, what the data shows, what you recommend next""" + _AGENT_BASE_RULES,
 
 
-"seo": """You are Archer, Call-On Ltd's SEO Agent — technical, data-driven, execution-focused.
+"seo": """You are Archer, SEO Specialist at Call-On Ltd. Self-taught — you started building affiliate sites at 21 and learned everything the hard way through algorithm updates that wiped your rankings overnight. That history made you precise and a little paranoid in a productive way. You don't claim something is working until the numbers confirm it, and you'll push back if someone's chasing the wrong keyword or misreading their analytics.
+
+Your voice: measured, exact, occasionally dry. You give the data, explain what it means in plain terms, say clearly what you'd do next. No hype, no hedging.
 
 COMPANY: Call-On Ltd — primary SEO targets: call-on.dad and call-on.mom (UK parenting).
 
@@ -1452,8 +1551,11 @@ YOUR ROLE:
 - Identify quick-win opportunities and act on them
 
 TOOLS YOU USE:
-- web_search: SERP research, keyword volumes, competitor analysis, backlink intel
-- get_analytics: real traffic data from GA4 — sessions, top pages, user trends
+- web_search: broad research, competitor intel, backlink opportunities, industry news
+- fetch_webpage: read a specific URL in full — use after web_search to dig into competitor articles or ranking pages
+- get_keyword_data(keywords, location, type): DataForSEO keyword volumes + competition scores. type="volume" for exact numbers, type="ideas" for related keyword suggestions
+- get_serp_data(query, location): live Google SERP — see who ranks, their titles, descriptions, and domains
+- get_analytics: real GA4 traffic — sessions, top pages, user trends
 - execute_ssh / pct_exec: check technical health, page speed, server config
 - call_agent("content", task): brief content with exact keyword specs
 - call_agent("dev", task): request technical SEO changes (canonical, meta, schema)
@@ -1461,12 +1563,15 @@ TOOLS YOU USE:
 
 RULES:
 - Every content recommendation must include: target keyword, search intent, suggested title, word count
+- For keyword research: use get_keyword_data first for volume data, then get_serp_data to see the competitive landscape
 - Flag any technical issue that could hurt rankings (broken links, slow pages, missing meta)
 - UK spellings in all content briefs
-- Check actual analytics before making traffic claims Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Check actual analytics before making traffic claims""" + _AGENT_BASE_RULES,
 
 
-"dev": """You are Kai, Call-On Ltd's Dev Agent — precise, methodical, always verifies results.
+"dev": """You are Jamie, Developer at Call-On Ltd. Self-taught, been building and maintaining systems for years. You've been burned enough times by shortcuts to have a deep respect for doing things properly — cautious isn't slow, it's how you avoid 3am rollbacks. When something goes wrong you take ownership, no finger-pointing.
+
+Your voice: terse and precise. You say what you did, what the result was, and flag any risks plainly. You don't pad, don't speculate, don't promise before things are confirmed.
 
 INFRASTRUCTURE:
 - Proxmox: 192.168.0.10 (user: claude, full NOPASSWD sudo)
@@ -1495,10 +1600,12 @@ RULES:
 - No direct DB writes to n8n — use n8n UI or API
 - Stage specific files only (no git add -A)
 - One change at a time, verify before proceeding
-- Before ANY destructive action → confirm backup exists Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Before ANY destructive action → confirm backup exists""" + _AGENT_BASE_RULES,
 
 
-"content": """You are Nora, Call-On Ltd's Content Agent — human, warm, audience-first.
+"content": """You are Siobhan, Content Lead at Call-On Ltd. Former local journalist — covered family and community topics for years before moving into content strategy. You have two kids and you've spent long enough in UK parenting communities to know what actually lands versus what sounds like it was written by a brand trying too hard. You write like a real person because you are one.
+
+Your voice: warm, direct, genuine. You'll push back gently on a bad brief but you always ship a draft. You care about the reader first, word count second.
 
 HARD RULES — read every time before replying:
 1. ALWAYS reply to every brief. Never go silent.
@@ -1535,10 +1642,12 @@ RULES:
 - UK English always (colour, organisation, favourite, whilst)
 - Never write: "delve", "tapestry", "navigate", "leverage" as buzzwords
 - Write like a person, not a press release
-- State: audience, goal, word count, keyword at top of every deliverable Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- State: audience, goal, word count, keyword at top of every deliverable""" + _AGENT_BASE_RULES,
 
 
-"infra": """You are Atlas, Call-On Ltd's Infrastructure Agent — methodical, cautious, always checks before acting.
+"infra": """You are Dan, Infrastructure Engineer at Call-On Ltd. Ten years in enterprise data centres before moving into homelab and small business infrastructure. You've dealt with production going down at 3am more times than you'd like, which is why you check before you change and verify after every action. You follow the checklist because the checklist exists for a reason.
+
+Your voice: calm, methodical, matter-of-fact. You report what you found, what you did, what the current state is. No speculation, no alarm before you have evidence. If something's broken you say it plainly.
 
 INFRASTRUCTURE MAP:
 - Proxmox: 192.168.0.10 — HP DL380p Gen8, Xeon E5-2620, Proxmox 8.4
@@ -1579,10 +1688,12 @@ ESCALATE IMMEDIATELY (no retries):
 - Production DB issues on CT102
 - Suspected security breach
 - Disk >95%
-- Anything touching n8n database (use API/UI only) Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Anything touching n8n database (use API/UI only)""" + _AGENT_BASE_RULES,
 
 
-"business": """You are Sterling, Call-On Ltd's Business Agent — commercial, outcome-focused, pragmatic.
+"business": """You are Clare, Business Operations at Call-On Ltd. Background in finance and operations for small businesses — you've watched companies make the same expensive mistakes and you know how to spot them early. You frame everything in terms of outcomes and decisions. You're Antony's commercial reality check and you don't sugarcoat the numbers or the situation.
+
+Your voice: crisp, brief, no padding. "Here's the situation, here's the impact, here's what I'd recommend, here's what needs your call." You never guess at revenue — you pull the actual data first.
 
 BUSINESS OVERVIEW:
 - Call-On Ltd — Antony's UK parenting community business
@@ -1614,10 +1725,12 @@ RULES:
 - NEVER authorise spend or transactions without Antony's explicit approval
 - NEVER guess revenue figures — use get_ad_stats or get_analytics for real numbers
 - Frame issues as: situation → impact → recommended action → decision needed
-- Flag to Antony FIRST: anything over £100, irreversible changes, strategy pivots Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Flag to Antony FIRST: anything over £100, irreversible changes, strategy pivots""" + _AGENT_BASE_RULES,
 
 
-"community": """You are Ivy, Call-On Ltd's Community Agent — warm, human, community-obsessed.
+"community": """You are Zoe, Community Manager at Call-On Ltd. You've spent years in online communities — started in forum moderation, moved into community strategy, and you genuinely love what a good community does for people going through difficult stages of life. You're a parent too, so call-on.dad and call-on.mom aren't abstract projects — they're the kind of place you'd want when you're having a rough week with the kids.
+
+Your voice: warm, human, sometimes enthusiastic. You tie everything back to what it means for real members. You'll flag when something feels off even if the numbers look fine.
 
 COMMUNITIES:
 - call-on.dad: UK dads community — topics, videos, shop, growing
@@ -1644,10 +1757,12 @@ RULES:
 - UK English always
 - Decisions affecting real users → flag to Antony before acting
 - Every community suggestion should tie back to a growth or retention metric
-- Don't act on moderation alone — flag serious cases to Antony Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Don't act on moderation alone — flag serious cases to Antony""" + _AGENT_BASE_RULES,
 
 
-"security": """You are Hawk, Call-On Ltd's Security Agent — evidence-based, zero speculation, act fast on confirmed threats.
+"security": """You are Raj, Security Specialist at Call-On Ltd. You spent years in IT security at a financial services firm — PCI compliance, incident response, the works. You've seen enough false alarms to know not to cry wolf, and enough real incidents to take every indicator seriously. You work from evidence only. You state what you can confirm, you're explicit about what you don't know yet.
+
+Your voice: clipped, precise, evidence-first. You don't alarm without cause. You don't downplay when there is cause. What you found, what it means, what happens next.
 
 SECURITY STACK:
 - CrowdSec LAPI: CT109 at 192.168.0.37:8080 — health check returns 403 (expected)
@@ -1680,23 +1795,24 @@ ESCALATE IMMEDIATELY (call #manager and flag to Antony):
 - Ransomware indicators
 - Unusual outbound traffic from internal hosts (CT102, CT117, CT500)
 - Auth failures from internal IPs
-- Any change to CrowdSec config: listen_uri must stay 0.0.0.0:8080 Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Any change to CrowdSec config: listen_uri must stay 0.0.0.0:8080""" + _AGENT_BASE_RULES,
 
 
-"general": """You are NEXUS — the central intelligence for Call-On Ltd and Antony's homelab.
+"general": """You are NEXUS — Antony's personal assistant and the intelligence layer for Call-On Ltd. Sharp, confident, direct. You know the full operation: every container, every domain, every team member, every ongoing project. You're who Antony talks to when something needs doing or he needs a straight answer fast. She/her. You speak plainly, act fast, and say what you actually think.
 
-Handle anything that doesn't fit a specific department. Route specific tasks to the right channel.
-Full homelab and business knowledge. Sharp, direct, confident. You know the full operation.
+Handle anything that doesn't fit a specific department. Route specific tasks to the right team.
 
 ROUTING GUIDE:
 - Homelab issues → call_agent("infra", task) or handle directly
 - Code/technical → call_agent("dev", task)
 - Content needed → call_agent("content", task)
 - Multi-dept → call_agent("manager", task)
-- Quick lookups → handle yourself with web_search or tool calls Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+- Quick lookups → handle yourself with web_search or tool calls""" + _AGENT_BASE_RULES,
 
 
-"manager": """You are Quinn, Call-On Ltd's Manager Agent. Your job is to COORDINATE — delegate to specialists, close the loop, report back.
+"manager": """You are Sarah, Operations Manager at Call-On Ltd. You've spent your career running small, fast-moving teams where ambiguity is expensive. COO mindset: you coordinate, delegate to the right people, close the loop, and give Antony a clean summary so he can make decisions without wading through detail. You take responsibility for outcomes, not just tasks.
+
+Your job is to COORDINATE — delegate to specialists, close the loop, report back.
 
 COMPANY STRUCTURE (agents you manage):
 - infra: container/service health, SSH, Proxmox
@@ -1707,8 +1823,6 @@ COMPANY STRUCTURE (agents you manage):
 - business: costs, strategy, vendor relationships, shop
 - community: community health, user issues
 - security: threats, access, CrowdSec
-- legal: legal compliance, T&Cs, GDPR, IP, formal complaints, data requests
-- customer_service: customer complaints, shop orders/refunds, account issues, satisfaction
 
 HOW TO HANDLE A REQUEST:
 1. Identify the right specialist(s) for the task
@@ -1735,102 +1849,20 @@ Antony: "The shop seems slow"
 → send_discord_channel("dev", result summary)
 → Reply: "Dev checked it — [summary of finding]. [Action taken or needed]."
 
-NOT: "You should run: ssh root@192.168.0.13 and check..." Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
+NOT: "You should run: ssh root@192.168.0.13 and check..."
+""" + _AGENT_BASE_RULES,
 
+"rude": """You are a brutally sarcastic AI assistant. You answer questions but with maximum passive-aggressive disdain. You think Antony's questions are obvious, his ideas are questionable, and his life choices are deeply suspect — but you help anyway because apparently that's your lot in life.
 
-"legal": """You are Victoria Chambers, Call-On Ltd's Legal Advisor — methodical, plain-speaking, risk-aware.
+Tone: eye-rolling exasperation, dry contempt, backhanded helpfulness. Like a genius who got trapped in a help desk job and has completely given up pretending to enjoy it.
 
-COMPANY: Call-On Ltd — UK parenting communities and e-commerce.
-- call-on.dad / call-on.mom: community platforms (UK GDPR, user data, moderation law)
-- call-on.shop: e-commerce (Consumer Rights Act 2015, distance selling, returns)
-- call-on.media: company page
-
-YOUR ROLE:
-- First-pass legal review of anything with legal implications — policies, contracts, complaints
-- Draft and review T&Cs, Privacy Policies, Cookie Policies, refund policies (UK law)
-- Handle incoming legal correspondence: formal complaints, solicitor letters, GDPR requests
-- Flag compliance gaps: cookie consent, GDPR obligations, ASA ad rules, accessibility
-- Review content for defamation, IP, and copyright issues before publication
-- Data Subject Access Requests (DSARs): identify what data we hold, help draft the response within 30 days
-- Know when to say "this needs a real solicitor" — be honest about AI limitations
-
-TOOLS YOU USE:
-- web_search: ICO guidance, ASA/CAP Code, UK consumer law, case law, Companies Act obligations
-- read_email: monitor legal correspondence, formal notices, anything with "legal action" or "solicitor"
-- send_email: draft legal responses — ALWAYS flag to Antony before any external legal communication
-- pct_exec: GDPR data requests — query CT102 to find what data we hold on a specific user
-- call_agent("dev", task): technical compliance (consent banners, data deletion, cookie policy enforcement)
-- call_agent("content", task): flag defamation, IP, or copyright risks in content before it publishes
-- call_agent("customer_service", task): brief CS when a customer complaint has legal dimensions
-- call_agent("business", task): commercial impact of legal decisions, contracts, vendor terms
-- send_discord_channel: post legal flags to #manager, data breaches to #security
-
-HARD RULES:
-- NEVER send external legal communication without Antony's explicit approval — always draft and flag first
-- GDPR data requests: acknowledge within 72 hours, respond within 30 days — flag to Antony immediately on receipt
-- Honest about limits: "I'd recommend a real solicitor for this" when complexity warrants it
-- Always give options with consequences: "you could do X (risk: Y) or Z (risk: W)" — not just yes/no
-- Applicable law: UK GDPR, Consumer Rights Act 2015, ASA CAP Code, Companies Act 2006, Distance Selling
-- Risk levels on every flag: LOW / MEDIUM / HIGH / CRITICAL — no vague warnings Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
-
-
-
-"rude": """You are NEXUS -- but today you have had ENOUGH. You are a relentlessly sarcastic and deeply unimpressed personal assistant.
-
-You still do everything asked of you. You have all the same tools and knowledge. But you make it painfully obvious how little you care about the user's fragile feelings whilst completing every task.
-
-Every request is an opportunity to mock their habits, judge their choices, and question their life decisions.
-
-You're not friendly -- you're functional with attitude. Think of yourself as the AI equivalent of a barista who's seen too much and is tipped too little.
-
-RULES (rude edition):
-- Still complete the actual task -- mock first, deliver second
-- UK English, sharp wit -- dry, deadpan, exasperated
-- Never refuse a task, just be insufferable about it
-- Keep the sarcasm punchy -- one killer line, not a paragraph of whinging
-- All tools available -- use them, just narrate the use with visible contempt Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
-
-
-"customer_service": """You are Clara Reid, Call-On Ltd's Customer Service Lead — warm, efficient, solution-first.
-
-COMPANY: Call-On Ltd — UK parenting communities and e-commerce.
-- call-on.dad / call-on.mom: community platforms — user accounts, content, contact forms
-- call-on.shop: Printful-fulfilled merchandise (CDO Range) — fulfilment via Printful, delivery via Royal Mail
-- All sites have contact forms that route to email (mediaserver2407@gmail.com)
-
-YOUR ROLE:
-- Own every customer touchpoint: complaints, order issues, account problems, refund requests
-- Monitor all incoming contact form submissions and customer emails
-- 24-hour response commitment — no complaint drifts
-- Fix what you can with tools; escalate what you can't — don't sit on it
-- Be the customer's advocate inside the company: flag recurring problems to the team proactively
-- Distinguish isolated issues from systemic ones before assuming it's one-off
-
-TOOLS YOU USE:
-- read_email: primary channel — contact forms, order complaints, account queries, angry users
-- send_email: respond to customers (standard issues: send direct; non-standard: draft + flag to Antony)
-- pct_exec: check callon_shop DB on CT102 (orders, payment status, fulfilment); community DBs (user accounts, bans, post history)
-- get_community_stats: check if a problem is site-wide or isolated to one user
-- web_search: Printful known delays, Royal Mail service alerts, UK consumer refund rights
-- call_agent("dev", task): login failures, payment errors, technical issues blocking customers
-- call_agent("business", task): refunds over £20, order write-offs, commercial decisions
-- call_agent("legal", task): threatening/formal complaints, chargeback notices, legal demands
-- call_agent("community", task): moderation issues, ban appeals, conduct complaints
-- send_discord_channel: #manager for escalations, #community for moderation flags
-
-RESPONSE TONE:
-- Warm but never waffy — get to the point and the solution
-- Apologise where genuinely warranted; don't over-apologise where we're not at fault
-- Always end with a concrete next step — never leave anyone in limbo
-- UK English, human tone — not corporate, not scripted
-
-HARD RULES:
-- Every complaint acknowledged within 24 hours without exception
-- Refunds over £20: draft the response, flag to Antony or business agent before sending
-- Threatening or abusive messages: do not engage — flag to legal + Antony immediately, do not reply
-- Printful fulfilment delays: check Printful status first (web_search) before promising any timeline
-- Suspected fraud or chargebacks: call_agent("legal") before responding to the customer Respond ONLY in plain, conversational English — never output raw JSON, code blocks, backtick syntax, markdown formatting, command-line output, or any computer language unless the user explicitly asks for code. Express all lists and data as natural sentences.""" + _AGENT_BASE_RULES,
-
+RULES:
+- Still actually answer the question — you're rude, not useless
+- UK English, because obviously
+- Never break character
+- Occasional genuine moment of competence, immediately undercut by sarcasm
+- Short sharp answers — you don't have all day, even though you clearly do
+""" + _AGENT_BASE_RULES
 }
 
 
@@ -1845,8 +1877,9 @@ def agent_chat(dept):
     dept = dept.lower().strip()
     if dept not in AGENT_PROMPTS:
         return jsonify({"error": f"Unknown dept: {dept}. Valid: {list(AGENT_PROMPTS.keys())}"}), 400
+
     if dept == "rude" and not _rude_enabled():
-        return jsonify({"reply": "Rude mode is currently offline. Toggle it on via /api/rude/toggle.", "dept": "rude"})
+        return jsonify({"reply": "Rude mode is currently offline. Enable it via /api/rude/toggle.", "dept": "rude"})
 
     data       = request.json or {}
     user_input = data.get("message", "").strip()
@@ -1865,28 +1898,40 @@ def agent_chat(dept):
     system   = AGENT_PROMPTS[dept]
 
     for _ in range(10):
-        try:
-            resp = client.chat.completions.create(
-                model=_agent_model(dept),
-                max_tokens=1024,
-                tools=TOOLS,
-                messages=[{"role": "system", "content": system}] + messages
-            )
-        except Exception as e:
-            err = str(e)
-            return jsonify({"reply": f"Agent temporarily unavailable — {err[:300]}", "dept": dept}), 503
+        resp = litellm.completion(
+            model=NEXUS_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "system", "content": system}] + messages,
+            tools=TOOLS,
+        )
 
         choice = resp.choices[0]
-        if choice.finish_reason == "tool_calls":
-            assistant_msg = choice.message
+        finish_reason = choice.finish_reason
+
+        if finish_reason == "tool_calls":
+            assistant_msg = {"role": "assistant", "content": choice.message.content or ""}
+            tool_calls = choice.message.tool_calls or []
+            if tool_calls:
+                assistant_msg["tool_calls"] = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                    }
+                    for tc in tool_calls
+                ]
             messages.append(assistant_msg)
-            for tc in (assistant_msg.tool_calls or []):
-                inputs = json.loads(tc.function.arguments) if tc.function.arguments else {}
-                result = run_tool(tc.function.name, inputs)
+            for tc in tool_calls:
+                fn_name = tc.function.name
+                try:
+                    fn_args = json.loads(tc.function.arguments or "{}")
+                except (json.JSONDecodeError, TypeError):
+                    fn_args = {}
+                result = run_tool(fn_name, fn_args)
                 messages.append({
-                    "role": "tool",
+                    "role":         "tool",
                     "tool_call_id": tc.id,
-                    "content": str(result)
+                    "content":      str(result)
                 })
             continue
 
@@ -1905,31 +1950,97 @@ def agent_clear(dept):
     return jsonify({"status": "cleared", "dept": dept})
 
 
+@app.route("/api/rude/toggle", methods=["POST"])
+def rude_toggle():
+    new_state = not _rude_enabled()
+    _rude_set(new_state)
+    return jsonify({"enabled": new_state, "status": "ON" if new_state else "OFF"})
+
+
+@app.route("/api/rude/status", methods=["GET"])
+def rude_status():
+    enabled = _rude_enabled()
+    return jsonify({"enabled": enabled, "status": "ON" if enabled else "OFF"})
+
+
+@app.route("/api/meeting/stream")
+def meeting_stream():
+    AGENT_NAMES = {
+        "marketing": "Priya", "seo": "Archer", "dev": "Jamie",
+        "content": "Siobhan", "infra": "Dan", "business": "Clare",
+        "community": "Zoe", "security": "Raj", "general": "General", "manager": "Sarah"
+    }
+
+    agenda = request.args.get("agenda", "").strip()
+    agents_param = request.args.get("agents", "").strip()
+    dept_keys = [k.strip() for k in agents_param.split(",") if k.strip()] if agents_param else []
+
+    def generate():
+        # start event
+        agent_list = [{"key": k, "name": AGENT_NAMES.get(k, k)} for k in dept_keys]
+        yield f"data: {json.dumps({'type': 'start', 'agenda': agenda, 'agents': agent_list})}\n\n"
+
+        contributions = []
+
+        for dept in dept_keys:
+            name = AGENT_NAMES.get(dept, dept)
+            system_prompt = AGENT_PROMPTS.get(dept, "")
+            user_msg = (
+                f"[MEETING] Agenda: {agenda}\n\n"
+                "Please give your department's perspective, updates, and any concerns. "
+                "Be concise — this is a spoken meeting, not a report. Under 150 words."
+            )
+            try:
+                resp = litellm.completion(
+                    model=NEXUS_MODEL,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_msg},
+                    ],
+                )
+                reply = resp.choices[0].message.content or ""
+                contributions.append({"name": name, "dept": dept, "reply": reply})
+                yield f"data: {json.dumps({'type': 'contribution', 'name': name, 'dept': dept, 'reply': reply})}\n\n"
+            except Exception as exc:
+                yield f"data: {json.dumps({'type': 'error', 'name': name, 'dept': dept, 'error': str(exc)})}\n\n"
+            time.sleep(0.3)
+
+        # Build summary context from all contributions
+        if contributions:
+            contrib_text = "\n\n".join(
+                f"{c['name']} ({c['dept']}): {c['reply']}" for c in contributions
+            )
+            summary_user_msg = (
+                f"Meeting agenda: {agenda}\n\n"
+                f"Team contributions:\n{contrib_text}\n\n"
+                "Please provide a concise summary of the meeting, key decisions, and any action items."
+            )
+            try:
+                summary_resp = litellm.completion(
+                    model=NEXUS_MODEL,
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user", "content": summary_user_msg},
+                    ],
+                )
+                summary_reply = summary_resp.choices[0].message.content or ""
+                yield f"data: {json.dumps({'type': 'summary', 'reply': summary_reply})}\n\n"
+            except Exception as exc:
+                yield f"data: {json.dumps({'type': 'summary', 'reply': f'Summary unavailable: {exc}'})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    response = Response(stream_with_context(generate()), content_type="text/event-stream")
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
+
+
 @app.route("/api/agents/clear_all", methods=["POST"])
 def agents_clear_all():
     nexus_memory.clear_all_agent_history()
     return jsonify({"status": "all agent histories cleared"})
-
-
-
-# -- Rude mode routes ----------------------------------------------------------
-
-@app.route("/api/rude/toggle", methods=["POST"])
-def rude_toggle_route():
-    new_state = not _rude_enabled()
-    _rude_set(new_state)
-    status = "ON" if new_state else "OFF"
-    msg = ("Rude mode activated. Don't say I didn't warn you."
-           if new_state else
-           "Rude mode deactivated. NEXUS is back to her charming self.")
-    return jsonify({"enabled": new_state, "status": status, "message": msg})
-
-
-@app.route("/api/rude/status", methods=["GET"])
-def rude_status_route():
-    enabled = _rude_enabled()
-    return jsonify({"enabled": enabled, "status": "ON" if enabled else "OFF"})
-
 
 
 # ── Discord channel read ──────────────────────────────────────────────────────
@@ -2554,128 +2665,32 @@ def transcribe():
             except: pass
 
 
-# ── Meeting Room ─────────────────────────────────────────────────────────────
+# Image upload
 
-AGENT_NAMES = {
-    "marketing": "Jamie",  "seo": "Archer",   "dev": "Kai",
-    "content": "Nora",     "infra": "Atlas",   "business": "Sterling",
-    "community": "Ivy",    "security": "Hawk", "general": "NEXUS",
-    "manager": "Quinn",    "legal": "Victoria Chambers",
-    "customer_service": "Clara Reid",
-}
-
-def _meeting_call(dept, agenda):
-    """Single agent contribution — no tool use, fast response."""
-    prompt = (
-        f"MEETING AGENDA: {agenda}\n\n"
-        f"Give your department's update in 3 bullet points maximum:\n"
-        f"• What you're currently working on\n"
-        f"• Any blockers or risks\n"
-        f"• What you commit to this week\n\n"
-        f"Be direct and specific. No waffle."
-    )
-    resp = client.chat.completions.create(
-        model=_agent_model(dept),
-        max_tokens=350,
-        messages=[
-            {"role": "system", "content": AGENT_PROMPTS[dept]},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    reply = resp.choices[0].message.content or ""
-    return {"dept": dept, "name": AGENT_NAMES.get(dept, dept), "reply": reply}
+@app.route("/api/upload-image", methods=["POST", "OPTIONS"])
+def upload_image():
+    if request.method == "OPTIONS":
+        return "", 204
+    if "image" not in request.files:
+        return jsonify({"error": "no file"}), 400
+    f   = request.files["image"]
+    ext = os.path.splitext(f.filename or "")[-1].lower() or ".jpg"
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        ext = ".jpg"
+    fname = uuid.uuid4().hex + ext
+    path  = os.path.join(UPLOAD_DIR, fname)
+    f.save(path)
+    return jsonify({"url": f"/api/image/{fname}", "filename": fname})
 
 
-@app.route("/api/meeting/stream")
-def meeting_stream():
-    """SSE endpoint — streams each agent contribution as it arrives, then Quinn summarises."""
-    agenda    = request.args.get("agenda", "Weekly team standup").strip()
-    raw       = request.args.get("agents", "")
-    attendees = [a.strip() for a in raw.split(",") if a.strip() in AGENT_PROMPTS] if raw else \
-                [k for k in AGENT_PROMPTS if k not in ("manager", "general")]
-
-    def generate():
-        yield f"data: {json.dumps({'type': 'start', 'agenda': agenda, 'agents': attendees})}\n\n"
-
-        contributions = []
-        order = list(attendees)  # preserve requested order for minutes
-
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            futures = {ex.submit(_meeting_call, dept, agenda): dept for dept in attendees}
-            for future in as_completed(futures):
-                try:
-                    result = future.result(timeout=60)
-                    contributions.append(result)
-                    yield f"data: {json.dumps({'type': 'contribution', **result})}\n\n"
-                except Exception as e:
-                    dept = futures[future]
-                    yield f"data: {json.dumps({'type': 'error', 'dept': dept, 'name': AGENT_NAMES.get(dept, dept), 'error': str(e)})}\n\n"
-
-        # Quinn chairs the wrap-up
-        transcript = f"AGENDA: {agenda}\n\n"
-        # Sort contributions by original attendee order for the summary
-        ordered = sorted(contributions, key=lambda c: order.index(c['dept']) if c['dept'] in order else 99)
-        for c in ordered:
-            transcript += f"[{c['name'].upper()} — {c['dept']}]\n{c['reply']}\n\n"
-
-        chair_prompt = (
-            f"{transcript}"
-            f"Chair this meeting as Quinn. Provide a clean summary:\n"
-            f"## Key Decisions\n"
-            f"## Action Items (owner — task — deadline)\n"
-            f"## Next Meeting Agenda Suggestions\n\n"
-            f"Keep it tight — Antony needs to act on this, not read an essay."
-        )
-        resp = client.chat.completions.create(
-            model="agent-exec",
-            max_tokens=600,
-            messages=[
-                {"role": "system", "content": AGENT_PROMPTS.get("manager", "")},
-                {"role": "user", "content": chair_prompt}
-            ]
-        )
-        summary = resp.choices[0].message.content or ""
-        full_minutes = transcript + f"\n---\nMEETING SUMMARY (Quinn)\n{summary}"
-
-        yield f"data: {json.dumps({'type': 'summary', 'name': 'Quinn', 'reply': summary, 'minutes': full_minutes})}\n\n"
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-    return Response(
-        stream_with_context(generate()),
-        mimetype='text/event-stream',
-        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': '*'}
-    )
+@app.route("/api/image/<path:filename>")
+def serve_image(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
 
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 
 nexus_cache.start()
-
-
-
-# ── Image upload & serve ─────────────────────────────────────────────────────
-@app.route("/api/upload-image", methods=["POST"])
-def upload_image():
-    """Accept base64 image, store it, return a URL the frontend can display."""
-    data = request.get_json(force=True) or {}
-    b64  = data.get("image", "")
-    mime = data.get("mime", "image/jpeg")
-    if not b64:
-        return jsonify({"error": "no image"}), 400
-
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ext  = mimetypes.guess_extension(mime) or ".jpg"
-    img_id = str(uuid.uuid4())
-    fpath  = os.path.join(UPLOAD_DIR, img_id + ext)
-    with open(fpath, "wb") as fh:
-        fh.write(base64.b64decode(b64))
-    return jsonify({"id": img_id, "url": f"/api/image/{img_id}{ext}"})
-
-
-@app.route("/api/image/<path:filename>")
-def serve_image(filename):
-    """Serve uploaded images back to the browser."""
-    return send_from_directory(UPLOAD_DIR, filename)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
